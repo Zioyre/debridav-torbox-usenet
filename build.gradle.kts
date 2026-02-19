@@ -96,6 +96,7 @@ dependencies {
     implementation(libs.ktor.client.apache5)
     implementation(libs.ktor.client.java)
     implementation(libs.sentry.spring.boot)
+    implementation(libs.sentry.logback)
 
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.spring.boot.webtestclient)

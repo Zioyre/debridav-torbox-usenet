@@ -84,6 +84,7 @@ logstash-logback-encoder = { module = "net.logstash.logback:logstash-logback-enc
 prometheus-metrics-core = { module = "io.prometheus:prometheus-metrics-core" }
 micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus" }
 sentry-spring-boot = { module = "io.sentry:sentry-spring-boot-4", version.ref = "sentry" }
+sentry-logback = { module = "io.sentry:sentry-logback", version.ref = "sentry" }
 
 # Encoding
 java-multibase = { module = "com.github.multiformats:java-multibase", version.ref = "java-multibase" }
