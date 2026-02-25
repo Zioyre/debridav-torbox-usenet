@@ -25,10 +25,15 @@ interface DebridCachedContentClient : StreamableLinkPreparable {
     suspend fun getStreamableLink(key: CachedContentKey, cachedFile: CachedFile): String?
 
     @Suppress("ThrowsCount", "MagicNumber")
-    suspend fun throwDebridProviderException(resp: HttpResponse): Nothing {
+    suspend fun throwDebridProviderException(
+        resp: HttpResponse,
+        endpoint: String,
+        requestPayload: String = ""
+    ): Nothing {
         when (resp.status.value) {
             in 400..499 -> {
                 logger().error("${getProvider()} error: ${resp.body<String>()}")
+                logger().error("${getProvider()} endpoint: $endpoint request: $requestPayload")
                 throw DebridClientError(resp.body<String>(), resp.status.value, resp.request.url.encodedPathAndQuery)
             }
 

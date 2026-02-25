@@ -94,7 +94,7 @@ class TorBoxClient(
             logger.debug("isCached ${response.body<String>()}")
             response.body<IsCachedResponse>().data?.isNotEmpty() ?: false
         } else {
-            throwDebridProviderException(response)
+            throwDebridProviderException(response, "/api/torrents/checkcached?hash=$hash")
         }
     }
 
@@ -140,7 +140,7 @@ class TorBoxClient(
                     ?.map { it.toCachedFile(torrentId) }
                     ?: emptyList()
             } else {
-                throwDebridProviderException(response)
+                throwDebridProviderException(response, "/api/torrents/mylist?id=$torrentId")
             }
         }
 
@@ -190,7 +190,7 @@ class TorBoxClient(
         if (response.status.isSuccess()) {
             response.body<CreateTorrentResponse>().data.torrentId
         } else {
-            throwDebridProviderException(response)
+            throwDebridProviderException(response, "/api/torrents/createtorrent")
         }
     }
 

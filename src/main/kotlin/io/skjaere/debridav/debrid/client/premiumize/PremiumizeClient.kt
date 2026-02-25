@@ -55,7 +55,7 @@ class PremiumizeClient(
                         "/cache/check?items[]=${magnet.magnet}&apikey=${premiumizeConfiguration.apiKey}"
             )
         if (resp.status != HttpStatusCode.OK) {
-            throwDebridProviderException(resp)
+            throwDebridProviderException(resp, "/cache/check", magnet.magnet)
         }
         return resp
             .body<CacheCheckResponse>()
@@ -94,7 +94,7 @@ class PremiumizeClient(
             }
 
         if (resp.status != HttpStatusCode.OK) {
-            throwDebridProviderException(resp)
+            throwDebridProviderException(resp, "/transfer/directdl")
         }
         return resp.body<SuccessfulDirectDownloadResponse>()
     }

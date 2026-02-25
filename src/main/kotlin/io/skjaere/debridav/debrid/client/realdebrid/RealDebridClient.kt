@@ -57,7 +57,7 @@ private const val LINK_ID_MAP_KEY = "linkId"
 private const val TORRENT_ID_MAP_KEY = "torrentId"
 
 @Component
-@ConditionalOnExpression("#{'\${debridav.debrid-clients}'.contains('real_debrid')}")
+@ConditionalOnExpression($$"#{'${debridav.debrid-clients}'.contains('real_debrid')}")
 @Suppress("TooManyFunctions")
 class RealDebridClient(
     private val realDebridConfigurationProperties: RealDebridConfigurationProperties,
@@ -65,7 +65,6 @@ class RealDebridClient(
     override val httpClient: HttpClient,
     private val realDebridTorrentService: RealDebridTorrentService,
     private val realDebridDownloadService: RealDebridDownloadService,
-    //private val realDebridRateLimiter: TimeWindowRateLimiter,
     private val realDebridRateLimiter: RateLimiter
 ) : DebridCachedTorrentClient, StreamableLinkPreparable by DefaultStreamableLinkPreparer(
     httpClient,
@@ -209,13 +208,14 @@ class RealDebridClient(
     }
 
     private suspend fun addMagnet(magnet: TorrentMagnet): AddMagnetResponse {
+        val payload = "magnet=${magnet.magnet}"
         val response = httpClient.post("${realDebridConfigurationProperties.baseUrl}/torrents/addMagnet") {
             headers {
                 accept(ContentType.Application.Json)
                 bearerAuth(realDebridConfigurationProperties.apiKey)
                 contentType(ContentType.Application.FormUrlEncoded)
             }
-            setBody("magnet=${magnet.magnet}")
+            setBody(payload)
         }
         if (response.status == HttpStatusCode.Created) {
             return response.body<SuccessfulAddMagnetResponse>()
@@ -224,21 +224,25 @@ class RealDebridClient(
                 val errorMessage = Json.decodeFromString(RealDebridErrorMessage.serializer(), response.body())
                 return FailedAddMagnetResponse(errorMessage.error)
             } catch (_: Exception) {
-                throwDebridProviderException(response)
+                throwDebridProviderException(response, "/torrents/addMagnet", payload)
             }
         } else {
-            throwDebridProviderException(response)
+            throwDebridProviderException(response, "/torrents/addMagnet", payload)
         }
     }
 
 
     private suspend fun getTorrentInfo(id: String): TorrentsInfo = realDebridRateLimiter.executeSuspendFunction {
-        httpClient.get("${realDebridConfigurationProperties.baseUrl}/torrents/info/$id") {
+        val resp = httpClient.get("${realDebridConfigurationProperties.baseUrl}/torrents/info/$id") {
             headers {
                 set(HttpHeaders.Accept, "application/json")
                 bearerAuth(realDebridConfigurationProperties.apiKey)
             }
-        }.body<TorrentsInfo>()
+        }
+        if (!resp.status.isSuccess()) {
+            logger.error("error getting torrent info for id: $id: ${resp.status} ${resp.body<String>()}")
+        }
+        resp.body<TorrentsInfo>()
     }
 
 
@@ -281,13 +285,14 @@ class RealDebridClient(
         }
 
         if (resp.status != HttpStatusCode.NoContent) {
-            throwDebridProviderException(resp)
+            throwDebridProviderException(resp, "/torrents/delete/$torrentId")
         }
         realDebridTorrentService.deleteTorrentFromDb(torrentId)
     }
 
     @Suppress("MagicNumber")
     private suspend fun selectFilesFromTorrent(torrentId: String, fileIds: List<String>) {
+        val payload = "files=${fileIds.joinToString(",")}"
         val resp = realDebridRateLimiter.executeSuspendFunction {
             httpClient.post("${realDebridConfigurationProperties.baseUrl}/torrents/selectFiles/$torrentId") {
                 headers {
@@ -295,11 +300,11 @@ class RealDebridClient(
                     bearerAuth(realDebridConfigurationProperties.apiKey)
                     contentType(ContentType.Application.FormUrlEncoded)
                 }
-                setBody("files=${fileIds.joinToString(",")}")
+                setBody(payload)
             }
         }
-        if (resp.status.value !in 200..299) {
-            throwDebridProviderException(resp)
+        if (!resp.status.isSuccess()) {
+            throwDebridProviderException(resp, "/torrents/selectFiles/$torrentId", payload)
         }
     }
 
@@ -343,7 +348,7 @@ class RealDebridClient(
             }
         }
         if (!listOf(CREATED, NOT_FOUND).contains(response.status.value)) {
-            throwDebridProviderException(response)
+            throwDebridProviderException(response, "/downloads/delete/$downloadId")
         }
     }
 

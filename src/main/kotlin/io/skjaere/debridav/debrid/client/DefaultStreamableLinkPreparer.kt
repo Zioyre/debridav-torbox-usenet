@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.retry
 import org.apache.commons.io.FileUtils
 import org.slf4j.LoggerFactory
+import java.nio.channels.UnresolvedAddressException
 
 const val RETRIES = 3L
 
@@ -68,9 +69,16 @@ class DefaultStreamableLinkPreparer(
         }
     }
 
+    @Suppress("SwallowedException")
     override suspend fun isLinkAlive(debridLink: CachedFile): Boolean = flow {
         rateLimiter.executeSuspendFunction {
-            emit(httpClient.head(debridLink.link!!).status.isSuccess())
+            try {
+                val resp = httpClient.head(debridLink.link!!)
+                emit(resp.status.isSuccess())
+
+            } catch (_: UnresolvedAddressException) {
+                emit(false)
+            }
         }
     }.retry(RETRIES)
         .first()
