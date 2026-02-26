@@ -7,6 +7,7 @@ import io.ktor.client.call.body
 import io.ktor.client.request.accept
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.delete
+import io.ktor.client.request.forms.FormDataContent
 import io.ktor.client.request.get
 import io.ktor.client.request.head
 import io.ktor.client.request.headers
@@ -15,6 +16,7 @@ import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.Parameters
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.skjaere.debridav.configuration.DebridavConfigurationProperties
@@ -215,19 +217,27 @@ class RealDebridClient(
                 bearerAuth(realDebridConfigurationProperties.apiKey)
                 contentType(ContentType.Application.FormUrlEncoded)
             }
-            setBody(payload)
+            setBody(FormDataContent(Parameters.build {
+                append("magnet", magnet.magnet)
+            }))
         }
-        if (response.status == HttpStatusCode.Created) {
-            return response.body<SuccessfulAddMagnetResponse>()
-        } else if (response.status == HttpStatusCode.ServiceUnavailable) {
-            try {
-                val errorMessage = Json.decodeFromString(RealDebridErrorMessage.serializer(), response.body())
-                return FailedAddMagnetResponse(errorMessage.error)
-            } catch (_: Exception) {
+        when (response.status) {
+            HttpStatusCode.Created -> {
+                return response.body<SuccessfulAddMagnetResponse>()
+            }
+
+            HttpStatusCode.ServiceUnavailable -> {
+                try {
+                    val errorMessage = Json.decodeFromString(RealDebridErrorMessage.serializer(), response.body())
+                    return FailedAddMagnetResponse(errorMessage.error)
+                } catch (_: Exception) {
+                    throwDebridProviderException(response, "/torrents/addMagnet", payload)
+                }
+            }
+
+            else -> {
                 throwDebridProviderException(response, "/torrents/addMagnet", payload)
             }
-        } else {
-            throwDebridProviderException(response, "/torrents/addMagnet", payload)
         }
     }
 
@@ -292,19 +302,19 @@ class RealDebridClient(
 
     @Suppress("MagicNumber")
     private suspend fun selectFilesFromTorrent(torrentId: String, fileIds: List<String>) {
-        val payload = "files=${fileIds.joinToString(",")}"
         val resp = realDebridRateLimiter.executeSuspendFunction {
             httpClient.post("${realDebridConfigurationProperties.baseUrl}/torrents/selectFiles/$torrentId") {
                 headers {
                     accept(ContentType.Application.Json)
                     bearerAuth(realDebridConfigurationProperties.apiKey)
-                    contentType(ContentType.Application.FormUrlEncoded)
                 }
-                setBody(payload)
+                setBody(FormDataContent(Parameters.build {
+                    append("files", fileIds.joinToString(","))
+                }))
             }
         }
         if (!resp.status.isSuccess()) {
-            throwDebridProviderException(resp, "/torrents/selectFiles/$torrentId", payload)
+            throwDebridProviderException(resp, "/torrents/selectFiles/$torrentId", fileIds.joinToString(","))
         }
     }
 
@@ -314,9 +324,10 @@ class RealDebridClient(
                 headers {
                     accept(ContentType.Application.Json)
                     bearerAuth(realDebridConfigurationProperties.apiKey)
-                    contentType(ContentType.Application.FormUrlEncoded)
                 }
-                setBody("link=$link")
+                setBody(FormDataContent(Parameters.build {
+                    append("link", link)
+                }))
             }
         }
         logger.debug("unrestricted link: ${response.body<String>()}")

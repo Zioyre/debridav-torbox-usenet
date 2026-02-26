@@ -1,7 +1,6 @@
 package io.skjaere.debridav.test.integrationtest.config
 
 import io.skjaere.debridav.debrid.client.realdebrid.model.TorrentsInfo
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.mockserver.client.MockServerClient
 import org.mockserver.matchers.Times
@@ -11,6 +10,7 @@ import org.mockserver.model.MediaType
 import org.mockserver.model.Parameter
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import java.net.URLEncoder
 
 @Component
 class RealDebridStubbingService(
@@ -233,7 +233,7 @@ class RealDebridStubbingService(
                 .withPath(
                     "/realdebrid/unrestrict/link"
                 )
-                .withBody("link=$link")
+                .withBody("link=${URLEncoder.encode(link, Charsets.UTF_8)}")
         ).respond(
             HttpResponse.response()
                 .withStatusCode(200)
@@ -252,7 +252,7 @@ class RealDebridStubbingService(
                 .withPath(
                     "/realdebrid/torrents/addMagnet"
                 )
-                .withBody("magnet=$magnet")
+                .withBody("magnet=${URLEncoder.encode(magnet, Charsets.UTF_8)}")
         ).respond(
             HttpResponse.response()
                 .withStatusCode(201)

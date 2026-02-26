@@ -8,7 +8,6 @@ import io.ktor.client.request.accept
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.http.ContentType
-import io.ktor.http.contentType
 import io.ktor.http.headers
 import io.skjaere.debridav.debrid.client.realdebrid.RealDebridConfigurationProperties
 import io.skjaere.debridav.debrid.client.realdebrid.TorrentsResponseItem
@@ -100,7 +99,6 @@ class RealDebridTorrentService(
                     headers {
                         accept(ContentType.Application.Json)
                         bearerAuth(realDebridConfigurationProperties.apiKey)
-                        contentType(ContentType.Application.FormUrlEncoded)
                     }
                     url {
                         parameters.append("limit", numItems.toString())

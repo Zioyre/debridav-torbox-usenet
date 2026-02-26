@@ -92,7 +92,6 @@ class RealDebridDownloadService(
                     headers {
                         accept(ContentType.Application.Json)
                         bearerAuth(realDebridConfigurationProperties.apiKey)
-                        contentType(ContentType.Application.FormUrlEncoded)
                     }
                     url {
                         parameters.append("limit", numItems.toString())
