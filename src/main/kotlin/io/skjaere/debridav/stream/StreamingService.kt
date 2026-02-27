@@ -133,8 +133,8 @@ class StreamingService(
         }
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    @Suppress("TooGenericExceptionCaught")
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Suppress("ThrowsCount", "TooGenericExceptionCaught")
     private suspend fun sendBytesFromHttpStream(
         debridLink: CachedFile,
         range: Range,

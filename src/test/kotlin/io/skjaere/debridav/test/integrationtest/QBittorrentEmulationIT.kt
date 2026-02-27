@@ -370,8 +370,7 @@ class QBittorrentEmulationIT {
     }
 
     @Test
-    @Suppress("MaxLineLength")
-    fun `that adding un-cached torrent with category mapped to arr client configured results in 200 response and created torrent download`() {
+    fun `that adding un-cached torrent with category mapped to arr client results in 422`() {
         // given
         val parts = MultipartBodyBuilder()
         parts.part("urls", MAGNET)
@@ -380,7 +379,7 @@ class QBittorrentEmulationIT {
 
         premiumizeStubbingService.mockIsNotCached()
 
-        // when
+        // when/then
         webTestClient
             .mutate()
             .responseTimeout(Duration.ofMillis(30000))
@@ -390,34 +389,7 @@ class QBittorrentEmulationIT {
             .contentType(MediaType.MULTIPART_FORM_DATA)
             .body(BodyInserters.fromMultipartData(parts.build()))
             .exchange()
-            .expectStatus().is2xxSuccessful
-
-        // then
-        val type = objectMapper.typeFactory.constructCollectionType(
-            List::class.java,
-            TorrentsInfoResponse::class.java
-        )
-        val radarrCategoryTorrentsInfoResponse = webTestClient.get()
-            .uri("/api/v2/torrents/info?category=radarr")
-            .exchange()
-            .expectStatus().is2xxSuccessful
-            .expectBody(String::class.java)
-            .returnResult().responseBody
-        val radarrCategoryParsedResponse: List<TorrentsInfoResponse> =
-            objectMapper.readValue(radarrCategoryTorrentsInfoResponse, type)
-        assertThat(
-            radarrCategoryParsedResponse, allOf(
-                hasSize(1),
-                hasItems<TorrentsInfoResponse>(
-                    hasProperty<TorrentsInfoResponse>(
-                        "name", `is`("test")
-                    ),
-                    hasProperty<TorrentsInfoResponse>(
-                        "category", `is`("radarr")
-                    )
-                )
-            )
-        )
+            .expectStatus().is4xxClientError
     }
 
     @Test

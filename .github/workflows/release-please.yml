@@ -34,9 +34,18 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Compute version tags
+        id: tags
+        run: |
+          VERSION="${{ needs.release-please.outputs.version }}"
+          MAJOR="${VERSION%%.*}"
+          MINOR="${VERSION#*.}"
+          MINOR="${MINOR%%.*}"
+          echo "tags=v${VERSION},v${MAJOR}.${MINOR},v${MAJOR},latest" >> "$GITHUB_OUTPUT"
+
       - name: Build and push Docker image
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         run: >-
           ./gradlew jib
-          -Djib.to.tags=v${{ needs.release-please.outputs.version }},latest
+          -Djib.to.tags=${{ steps.tags.outputs.tags }}

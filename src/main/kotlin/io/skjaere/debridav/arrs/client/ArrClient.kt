@@ -1,6 +1,7 @@
 package io.skjaere.debridav.arrs.client
 
-interface ArrClient: BaseArrClient {
+interface ArrClient : BaseArrClient {
     suspend fun getItemIdFromName(name: String): Long?
     fun getCategory(): String
+    suspend fun deleteFileAndSearch(name: String)
 }

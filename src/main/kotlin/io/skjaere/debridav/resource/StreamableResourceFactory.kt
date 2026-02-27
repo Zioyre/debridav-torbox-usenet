@@ -12,8 +12,13 @@ import io.skjaere.debridav.fs.DbDirectory
 import io.skjaere.debridav.fs.DbEntity
 import io.skjaere.debridav.fs.LocalContentsService
 import io.skjaere.debridav.fs.LocalEntity
+import io.skjaere.debridav.fs.NzbContents
 import io.skjaere.debridav.fs.RemotelyCachedEntity
+import com.vdsirotkin.pgmq.PgmqClient
 import io.skjaere.debridav.stream.StreamingService
+import io.skjaere.debridav.usenet.nzb.findStreamableFile
+import io.skjaere.debridav.usenet.nzb.toNzbDocument
+import io.skjaere.nzbstreamer.NzbStreamer
 import org.slf4j.LoggerFactory
 
 class StreamableResourceFactory(
@@ -21,7 +26,9 @@ class StreamableResourceFactory(
     private val debridService: DebridLinkService,
     private val streamingService: StreamingService,
     private val debridavConfigurationProperties: DebridavConfigurationProperties,
-    private val localContentsService: LocalContentsService
+    private val localContentsService: LocalContentsService,
+    private val nzbStreamer: NzbStreamer?,
+    private val pgmqClient: PgmqClient?
 ) : ResourceFactory {
     private val logger = LoggerFactory.getLogger(StreamableResourceFactory::class.java)
 
@@ -65,16 +72,49 @@ class StreamableResourceFactory(
     fun toFileResource(dbItem: DbEntity): Resource? {
         return when (dbItem) {
             is DbDirectory -> error("Provided file is a directory")
-            is RemotelyCachedEntity -> DebridFileResource(
-                file = dbItem,
-                fileService = fileService,
-                streamingService = streamingService,
-                debridService = debridService,
-                debridavConfigurationProperties = debridavConfigurationProperties
-            )
+            is RemotelyCachedEntity -> {
+                when (val contents = dbItem.contents) {
+                    is NzbContents -> toNzbFileResource(dbItem, contents)
+
+                    null -> null
+
+                    else -> DebridFileResource(
+                        file = dbItem,
+                        fileService = fileService,
+                        streamingService = streamingService,
+                        debridService = debridService,
+                        debridavConfigurationProperties = debridavConfigurationProperties
+                    )
+                }
+            }
 
             is LocalEntity -> FileResource(dbItem, fileService, localContentsService, debridavConfigurationProperties)
             else -> error("Unknown dbItemType type: ${dbItem::class.simpleName}")
         }
+    }
+
+    private fun toNzbFileResource(dbItem: RemotelyCachedEntity, contents: NzbContents): NzbFileResource? {
+        val streamer = nzbStreamer ?: run {
+            logger.warn(
+                "NzbContents found but NNTP is not enabled, cannot stream: {}",
+                contents.originalPath
+            )
+            return null
+        }
+        val nzbDocument = contents.nzbDocument!!.toNzbDocument()
+        return contents.nzbDocument!!.findStreamableFile(contents.originalPath!!)
+            ?.let { streamableFile ->
+                NzbFileResource(
+                    file = dbItem,
+                    fileService = fileService,
+                    nzbStreamer = streamer,
+                    nzbDocument = nzbDocument,
+                    streamableFile = streamableFile,
+                    debridavConfigurationProperties = debridavConfigurationProperties,
+                    pgmqClient = pgmqClient,
+                    nzbDocumentId = contents.nzbDocument!!.id!!
+                )
+            }
+            .also { if (it == null) logger.error("No streamable file found for path: {}", contents.originalPath) }
     }
 }

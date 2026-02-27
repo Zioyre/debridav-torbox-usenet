@@ -1,12 +1,9 @@
 package io.skjaere.debridav.test.integrationtest.config
 
-import io.skjaere.debridav.arrs.client.models.HistoryResponse
-import io.skjaere.debridav.arrs.client.models.HistoryResponse.HistoryRecord
 import io.skjaere.debridav.arrs.client.models.radarr.RadarrParseResponse
 import io.skjaere.debridav.arrs.client.models.sonarr.SonarrParseResponse
 import kotlinx.serialization.json.Json
 import org.mockserver.client.MockServerClient
-import org.mockserver.matchers.Times
 import org.mockserver.model.HttpRequest
 import org.mockserver.model.HttpResponse
 import org.mockserver.model.MediaType
@@ -36,13 +33,13 @@ class ArrStubbingService(@Value("\${mockserver.port}") val port: Int) {
                     when (arr) {
                         ArrService.SONARR -> jsonParser.encodeToString(
                             SonarrParseResponse.serializer(), SonarrParseResponse(
-                                listOf(SonarrParseResponse.Episode(1L))
+                                listOf(SonarrParseResponse.Episode(1L, 10L))
                             )
                         )
 
                         ArrService.RADARR -> jsonParser.encodeToString(
                             RadarrParseResponse.serializer(), RadarrParseResponse(
-                                RadarrParseResponse.Movie(1L)
+                                RadarrParseResponse.Movie(1L, 10L)
                             )
                         )
                     }
@@ -50,45 +47,37 @@ class ArrStubbingService(@Value("\${mockserver.port}") val port: Int) {
         )
     }
 
-    fun stubHistoryResponse(arr: ArrService) {
+    fun stubDeleteFileResponse(arr: ArrService) {
+        val path = when (arr) {
+            ArrService.SONARR -> "${getPath(arr)}/api/v3/episodefile/10"
+            ArrService.RADARR -> "${getPath(arr)}/api/v3/moviefile/10"
+        }
         MockServerClient(
             "localhost",
             port
         ).`when`(
             HttpRequest.request()
-                .withMethod("GET")
-                .withPath(
-                    "${getPath(arr)}/api/v3/history"
-                ).withQueryStringParameter("episodeId", "1"), Times.exactly(1)
+                .withMethod("DELETE")
+                .withPath(path)
         ).respond(
             HttpResponse.response()
                 .withStatusCode(200)
                 .withContentType(MediaType.APPLICATION_JSON)
-                .withBody(
-                    jsonParser.encodeToString(
-                        HistoryResponse.serializer(), HistoryResponse(
-                            listOf(HistoryRecord("grabbed", 2L))
-                        )
-                    )
-                )
         )
     }
 
-    fun stubFailedResponse(arr: ArrService) {
+    fun stubCommandResponse(arr: ArrService) {
         MockServerClient(
             "localhost",
             port
         ).`when`(
             HttpRequest.request()
                 .withMethod("POST")
-                .withPath(
-                    "${getPath(arr)}/api/v3/history/failed/2"
-                )
+                .withPath("${getPath(arr)}/api/v3/command")
         ).respond(
             HttpResponse.response()
                 .withStatusCode(200)
                 .withContentType(MediaType.APPLICATION_JSON)
-
         )
     }
 

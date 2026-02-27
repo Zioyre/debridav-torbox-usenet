@@ -11,8 +11,6 @@ guava = "33.1.0-jre"
 milton = "4.1.0.2601"
 mockserver = "5.14.0"
 mockito-kotlin = "5.2.1"
-httpclient5 = "5.6"
-httpcore5 = "5.3.4"
 java-multibase = "v1.1.1"
 bencode = "1.4.2"
 hypersistence = "3.15.2"
@@ -20,6 +18,9 @@ logstash-logback = "7.2"
 hamcrest = "3.0"
 sardine = "5.13"
 sentry = "8.32.0"
+nzb-streamer = "v0.6.0"
+pgmq-kotlin = "0.1.0"
+mock-nntp-server = "0.2.0"
 
 [libraries]
 # Kotlin
@@ -57,10 +58,6 @@ postgresql = { module = "org.postgresql:postgresql" }
 flyway-database-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
 hypersistence-utils = { module = "io.hypersistence:hypersistence-utils-hibernate-71", version.ref = "hypersistence" }
 
-# HTTP
-httpclient5 = { module = "org.apache.httpcomponents.client5:httpclient5", version.ref = "httpclient5" }
-httpcore5 = { module = "org.apache.httpcomponents.core5:httpcore5", version.ref = "httpcore5" }
-
 # WebDAV
 milton-server-ce = { module = "io.milton:milton-server-ce", version.ref = "milton" }
 
@@ -86,6 +83,7 @@ micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-p
 sentry-spring-boot = { module = "io.sentry:sentry-spring-boot-4", version.ref = "sentry" }
 sentry-logback = { module = "io.sentry:sentry-logback", version.ref = "sentry" }
 
+
 # Encoding
 java-multibase = { module = "com.github.multiformats:java-multibase", version.ref = "java-multibase" }
 bencode = { module = "com.dampcake:bencode", version.ref = "bencode" }
@@ -99,4 +97,6 @@ testcontainers = { module = "org.testcontainers:testcontainers", version.ref = "
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version.ref = "testcontainers" }
 hamcrest = { module = "org.hamcrest:hamcrest", version.ref = "hamcrest" }
 sardine = { module = "com.github.lookfirst:sardine", version.ref = "sardine" }
-
+nzb-streamer = { module = "com.github.skjaere:nzb-streamer", version.ref = "nzb-streamer" }
+pgmq-kotlin-jvm = { module = "com.vdsirotkin.pgmq:pgmq-kotlin-jvm", version.ref = "pgmq-kotlin" }
+mock-nntp-server = { module = "io.skjaere.mocknntp:mock-nntp-server", version.ref = "mock-nntp-server" }

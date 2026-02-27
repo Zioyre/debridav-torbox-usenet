@@ -1,0 +1,246 @@
+package io.skjaere.debridav.test.integrationtest
+
+import com.github.sardine.SardineFactory
+import io.skjaere.compressionutils.generation.ContainerType
+import io.skjaere.debridav.DebriDavApplication
+import io.skjaere.debridav.MiltonConfiguration
+import io.skjaere.debridav.repository.NzbDocumentRepository
+import io.skjaere.debridav.repository.UsenetRepository
+import io.skjaere.debridav.test.integrationtest.config.IntegrationTestContextConfiguration
+import io.skjaere.debridav.test.integrationtest.config.MockServerTest
+import io.skjaere.debridav.usenet.NzbHealthCheckService
+import io.skjaere.debridav.usenet.sabnzbd.model.SabnzbdFullHistoryResponse
+import io.skjaere.mocknntp.testcontainer.MockNntpServerContainer
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import org.hamcrest.MatcherAssert.assertThat
+import org.hamcrest.Matchers.`is`
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Test
+import org.mockserver.integration.ClientAndServer
+import org.mockserver.model.HttpRequest.request
+import org.mockserver.model.HttpResponse.response
+import org.mockserver.model.MediaType
+import org.mockserver.verify.VerificationTimes
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.web.server.LocalServerPort
+import org.springframework.http.client.MultipartBodyBuilder
+import org.springframework.test.web.reactive.server.WebTestClient
+import org.springframework.web.reactive.function.BodyInserters
+
+@SpringBootTest(
+    classes = [DebriDavApplication::class, IntegrationTestContextConfiguration::class, MiltonConfiguration::class],
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    properties = [
+        "debridav.debrid-clients=easynews",
+        "nntp.enabled=true",
+        "sonarr.integration-enabled=true",
+        "sonarr.category=testcat"
+    ]
+)
+@MockServerTest
+class NzbHealthCheckIT {
+
+    @Autowired
+    private lateinit var usenetRepository: UsenetRepository
+
+    @Autowired
+    private lateinit var nzbDocumentRepository: NzbDocumentRepository
+
+    @Autowired
+    private lateinit var webTestClient: WebTestClient
+
+    @Autowired
+    private lateinit var mockNntpServerContainer: MockNntpServerContainer
+
+    @Autowired
+    private lateinit var nzbHealthCheckService: NzbHealthCheckService
+
+    @Autowired
+    private lateinit var mockServer: ClientAndServer
+
+    @LocalServerPort
+    var randomServerPort: Int = 0
+
+    private val deserializer = Json { ignoreUnknownKeys = true }
+    private val sardine = SardineFactory.begin()
+    private val createdReleases = mutableListOf<String>()
+
+    @AfterEach
+    fun tearDown() {
+        runBlocking {
+            mockNntpServerContainer.client.clearYencBodyExpectations()
+            mockNntpServerContainer.client.clearStatExpectations()
+        }
+        for (releaseName in createdReleases) {
+            @Suppress("TooGenericExceptionCaught")
+            try {
+                sardine.delete("http://localhost:$randomServerPort/downloads/$releaseName")
+            } catch (_: Exception) {
+                // directory may not exist if import failed
+            }
+        }
+        createdReleases.clear()
+        usenetRepository.deleteAll()
+        nzbDocumentRepository.deleteAll()
+        mockServer.reset()
+    }
+
+    @Test
+    @Suppress("LongMethod")
+    fun `health check detects missing articles and triggers Arr search`() {
+        val releaseName = "healthcheck-test-release"
+        createdReleases.add(releaseName)
+
+        // given - import an NZB successfully
+        val testData = ByteArray(32 * 1024) { (it % 256).toByte() }
+        val nzbXml = runBlocking {
+            mockNntpServerContainer.client.prepareArchiveNzb(
+                fileContents = mapOf("testfile.bin" to testData),
+                containerType = ContainerType.RAR5
+            )
+        }
+        uploadNzb(nzbXml, releaseName)
+        waitForCompletion(releaseName)
+
+        // given - get an article ID from the imported document and mark it as missing
+        val nzbDocument = nzbDocumentRepository.findAll().first()
+        val usenetDownload = usenetRepository.findByNzbDocumentId(nzbDocument.id!!)
+        assertThat("UsenetDownload should reference the NZB document", usenetDownload != null, `is`(true))
+
+        val articleId = nzbDocument.files.first().segments.first().articleId
+        runBlocking {
+            mockNntpServerContainer.client.addStatExpectation("<$articleId>", false)
+        }
+
+        // given - reset lastVerified so the health check picks up this document
+        // (the @Scheduled health check may have already verified it in the background)
+        nzbDocument.lastVerified = null
+        nzbDocumentRepository.save(nzbDocument)
+
+        // given - set up Sonarr mock expectations
+        mockServer.`when`(
+            request()
+                .withMethod("GET")
+                .withPath("/sonarr/api/v3/parse")
+        ).respond(
+            response()
+                .withStatusCode(200)
+                .withContentType(MediaType.APPLICATION_JSON)
+                .withBody("""{"episodes": [{"id": 1, "episodeFileId": 10}]}""")
+        )
+        mockServer.`when`(
+            request()
+                .withMethod("DELETE")
+                .withPath("/sonarr/api/v3/episodefile/10")
+        ).respond(
+            response().withStatusCode(200)
+        )
+        mockServer.`when`(
+            request()
+                .withMethod("POST")
+                .withPath("/sonarr/api/v3/command")
+        ).respond(
+            response().withStatusCode(200)
+        )
+
+        // when - trigger health check (enqueues to PGMQ, processed asynchronously)
+        nzbHealthCheckService.triggerFullHealthCheck()
+
+        // then - wait for consumers to process check → repair pipeline
+        waitForMockServerVerification {
+            mockServer.verify(
+                request()
+                    .withMethod("GET")
+                    .withPath("/sonarr/api/v3/parse"),
+                VerificationTimes.atLeast(1)
+            )
+
+            mockServer.verify(
+                request()
+                    .withMethod("DELETE")
+                    .withPath("/sonarr/api/v3/episodefile/10"),
+                VerificationTimes.atLeast(1)
+            )
+
+            mockServer.verify(
+                request()
+                    .withMethod("POST")
+                    .withPath("/sonarr/api/v3/command"),
+                VerificationTimes.atLeast(1)
+            )
+        }
+    }
+
+    private fun uploadNzb(nzbXml: String, releaseName: String) {
+        val parts = MultipartBodyBuilder()
+        parts.part("mode", "addfile")
+        parts.part("cat", "testcat")
+        parts.part("name", nzbXml.toByteArray(Charsets.UTF_8))
+            .header("Content-Disposition", "form-data; name=name; filename=$releaseName.nzb")
+
+        webTestClient.post().uri("/api")
+            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+            .body(BodyInserters.fromMultipartData(parts.build()))
+            .exchange()
+            .expectStatus().is2xxSuccessful
+    }
+
+    @Suppress("NestedBlockDepth")
+    private fun waitForCompletion(releaseName: String) {
+        val historyParts = MultipartBodyBuilder()
+        historyParts.part("mode", "history")
+        historyParts.part("cat", "testcat")
+
+        var completed = false
+        var lastStatus = "unknown"
+        var attempts = 0
+        while (attempts < 30 && !completed) {
+            Thread.sleep(1000)
+            webTestClient.post().uri("/api")
+                .body(BodyInserters.fromMultipartData(historyParts.build()))
+                .exchange()
+                .expectStatus().is2xxSuccessful
+                .expectBody(String::class.java)
+                .returnResult().responseBody
+                ?.let { historyBody ->
+                    val history = deserializer.decodeFromString<SabnzbdFullHistoryResponse>(historyBody)
+                    val slot = history.history.slots.firstOrNull { it.name == releaseName }
+                    slot?.let {
+                        lastStatus = it.status
+                        if (it.status == "COMPLETED" || it.status == "FAILED") {
+                            completed = it.status == "COMPLETED"
+                        }
+                    }
+                }
+            attempts++
+        }
+
+        assertThat(
+            "Import should complete within timeout (last status: $lastStatus)",
+            completed,
+            `is`(true)
+        )
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun waitForMockServerVerification(
+        timeoutMs: Long = 30_000,
+        pollMs: Long = 500,
+        verification: () -> Unit
+    ) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var lastError: Throwable? = null
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                verification()
+                return
+            } catch (e: Throwable) {
+                lastError = e
+                Thread.sleep(pollMs)
+            }
+        }
+        throw AssertionError("Verification did not pass within ${timeoutMs}ms", lastError)
+    }
+}

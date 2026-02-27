@@ -4,9 +4,11 @@ import io.milton.config.HttpManagerBuilder
 import io.skjaere.debridav.configuration.DebridavConfigurationProperties
 import io.skjaere.debridav.debrid.DebridLinkService
 import io.skjaere.debridav.fs.DatabaseFileService
+import com.vdsirotkin.pgmq.PgmqClient
 import io.skjaere.debridav.fs.LocalContentsService
 import io.skjaere.debridav.resource.StreamableResourceFactory
 import io.skjaere.debridav.stream.StreamingService
+import io.skjaere.nzbstreamer.NzbStreamer
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -28,12 +30,16 @@ class MiltonConfiguration {
         debridService: DebridLinkService,
         streamingService: StreamingService,
         debridavConfigurationProperties: DebridavConfigurationProperties,
-        localContentsService: LocalContentsService
+        localContentsService: LocalContentsService,
+        nzbStreamer: NzbStreamer?,
+        pgmqClient: PgmqClient?
     ): StreamableResourceFactory = StreamableResourceFactory(
         fileService,
         debridService,
         streamingService,
         debridavConfigurationProperties,
-        localContentsService
+        localContentsService,
+        nzbStreamer,
+        pgmqClient
     )
 }
