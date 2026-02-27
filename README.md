@@ -15,14 +15,12 @@ protocol so that they can be mounted.
 
 ## Features
 
-- Stream content from Real Debrid, Premiumize and Easynews with Plex/Jellyfin.
-- Sort your content as you would regular files. You can create directories, rename files, and move them around any way
-  you like. No need to write regular expressions.
-- Seamless integration into the arr-ecosystem, providing a near identical experience to downloading torrents. DebriDav
-  integrates with Sonarr and Radarr using the qBittorrent API,
-  so they can add content, and automatically move your files for you.
-- Supports multiple debrid providers. DebriDav supports enabling both Premiumize and Real Debrid concurrently with
-  defined priorities. If a torrent is not cached in the primary provider, it will fall back to the secondary.
+- ☁️ **Stream from debrid providers** — Real Debrid, Premiumize, TorBox, and Easynews, with Plex/Jellyfin.
+- 📡 **Stream from usenet via NNTP** *(coming in 0.12.0)* — Import NZBs and stream directly from your usenet provider, no intermediate download required.
+- 🔀 **Multiple providers with fallback** — Enable multiple debrid providers concurrently with defined priorities. If content is not cached in the primary provider, DebriDav falls back to the next.
+- 🔗 **Arr integration** — Emulates the qBittorrent and SABnzbd APIs for seamless integration with Sonarr and Radarr.
+- 📁 **Virtual file management** — Sort content as you would regular files. Create directories, rename files, and move them around — no regular expressions needed. Files are exposed via WebDAV.
+- 🩺 **Health checking and repair** — Automatically detect unhealthy NZB imports and trigger re-searches via Sonarr/Radarr.
 
 ## How does it work?
 
