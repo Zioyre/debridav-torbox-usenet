@@ -5,3 +5,27 @@
  */
 
 rootProject.name = "debridav"
+
+if (file("../ktor-nntp-client").exists()) {
+    includeBuild("../ktor-nntp-client") {
+        dependencySubstitution {
+            substitute(module("com.github.skjaere:ktor-nntp-client")).using(project(":"))
+        }
+    }
+}
+
+if (file("../nzb-streamer").exists()) {
+    includeBuild("../nzb-streamer") {
+        dependencySubstitution {
+            substitute(module("com.github.skjaere:nzb-streamer")).using(project(":"))
+        }
+    }
+}
+
+if (file("../mock-nntp-server/mock-nntp-server").exists()) {
+    includeBuild("../mock-nntp-server/mock-nntp-server") {
+        dependencySubstitution {
+            substitute(module("io.skjaere.mocknntp:mock-nntp-server")).using(project(":"))
+        }
+    }
+}
