@@ -72,8 +72,6 @@ dependencies {
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.guava)
-    implementation(libs.httpclient5)
-    implementation(libs.httpcore5)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
@@ -95,8 +93,12 @@ dependencies {
     implementation(libs.logstash.logback.encoder)
     implementation(libs.ktor.client.apache5)
     implementation(libs.ktor.client.java)
+    implementation(libs.nzb.streamer)
     implementation(libs.sentry.spring.boot)
     implementation(libs.sentry.logback)
+    implementation(libs.pgmq.kotlin.jvm)
+    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.spring.boot.webtestclient)
@@ -111,6 +113,7 @@ dependencies {
     testImplementation(libs.hamcrest)
     testImplementation(libs.sardine)
     testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.mock.nntp.server)
 }
 
 java {
