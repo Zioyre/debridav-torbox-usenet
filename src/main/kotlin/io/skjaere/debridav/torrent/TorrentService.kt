@@ -1,6 +1,5 @@
 package io.skjaere.debridav.torrent
 
-import io.skjaere.debridav.arrs.ArrService
 import io.skjaere.debridav.category.CategoryService
 import io.skjaere.debridav.configuration.DebridavConfigurationProperties
 import io.skjaere.debridav.debrid.DebridCachedContentService
@@ -25,7 +24,6 @@ class TorrentService(
     private val debridavConfigurationProperties: DebridavConfigurationProperties,
     private val torrentRepository: TorrentRepository,
     private val categoryService: CategoryService,
-    private val arrService: ArrService,
     private val torrentToMagnetConverter: TorrentToMagnetConverter
 ) {
     private val logger = LoggerFactory.getLogger(TorrentService::class.java)
@@ -43,11 +41,7 @@ class TorrentService(
 
         if (debridFileContents.isEmpty()) {
             logger.info("${getNameFromMagnet(magnet)} is not cached in any debrid services")
-            if (arrService.categoryIsMapped(category)) {
-                val torrent = createTorrent(debridFileContents, category, magnet)
-                arrService.markDownloadAsFailed(torrent.name!!, category)
-                true
-            } else false
+            false
         } else {
             createTorrent(debridFileContents, category, magnet)
             true

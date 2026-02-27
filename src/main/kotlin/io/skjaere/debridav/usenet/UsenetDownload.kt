@@ -2,12 +2,14 @@ package io.skjaere.debridav.usenet
 
 import io.skjaere.debridav.category.Category
 import io.skjaere.debridav.fs.RemotelyCachedEntity
+import io.skjaere.debridav.usenet.nzb.NzbDocumentEntity
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Entity
 import jakarta.persistence.FetchType
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
+import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.OneToMany
 
@@ -27,6 +29,10 @@ open class UsenetDownload {
 
     @ManyToOne(cascade = [(CascadeType.MERGE)])
     open var category: Category? = null
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "nzb_document_id")
+    open var nzbDocument: NzbDocumentEntity? = null
 
     @OneToMany(
         targetEntity = RemotelyCachedEntity::class,

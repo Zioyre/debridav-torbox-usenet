@@ -1,6 +1,5 @@
 package io.skjaere.debridav.test
 
-
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -9,91 +8,35 @@ import io.mockk.just
 import io.mockk.mockk
 import io.skjaere.debridav.arrs.ArrService
 import io.skjaere.debridav.arrs.client.SonarrApiClient
-import io.skjaere.debridav.arrs.client.models.HistoryResponse
-import kotlin.test.assertEquals
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
-import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Test
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 
 class ArrServiceTest {
-    val sonarrApiClient = mockk<SonarrApiClient>()
-    val tpte = getThreadpoolExecutor()
-    val underTest = ArrService(listOf(sonarrApiClient), tpte)
+    private val sonarrApiClient = mockk<SonarrApiClient>()
+    private val underTest = ArrService(listOf(sonarrApiClient))
 
     @Test
-    fun thatArrIsToldThatDownloadFailed() {
+    fun thatDeleteFileAndSearchCallsClient() = runTest {
         //given
         every { sonarrApiClient.getCategory() } returns "tv-sonarr"
-        coEvery { sonarrApiClient.getItemIdFromName(eq("test-item")) } returns 1L
-        coEvery { sonarrApiClient.history(eq(1L)) } returns HistoryResponse(
-            listOf(
-                HistoryResponse.HistoryRecord(
-                    "grabbed",
-                    3L
-                )
-            )
-        )
-        coEvery { sonarrApiClient.failed(eq(3L)) } just Runs
+        coEvery { sonarrApiClient.deleteFileAndSearch(eq("test-item")) } just Runs
 
         //when
-        runTest {
-            underTest.markDownloadAsFailed("test-item", "tv-sonarr")
-        }
+        underTest.deleteFileAndSearch("test-item", "tv-sonarr")
 
         //then
-        await().untilAsserted {
-            coVerify(exactly = 1) { sonarrApiClient.failed(eq(3L)) }
-        }
+        coVerify(exactly = 1) { sonarrApiClient.deleteFileAndSearch(eq("test-item")) }
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun thatItWaitsUntilItemIsPresentInArr() {
+    fun thatDeleteFileAndSearchDoesNothingForUnmappedCategory() = runTest {
         //given
-        val testScope = TestScope()
-
         every { sonarrApiClient.getCategory() } returns "tv-sonarr"
-        coEvery { sonarrApiClient.getItemIdFromName(eq("test-item")) } returns null
-        testScope.launch {
-            delay(30L)
-            coEvery { sonarrApiClient.getItemIdFromName(eq("test-item")) } returns 1L
-        }
-        coEvery { sonarrApiClient.history(eq(1L)) } returns HistoryResponse(
-            listOf(
-                HistoryResponse.HistoryRecord(
-                    "grabbed",
-                    3L
-                )
-            )
-        )
-        coEvery { sonarrApiClient.failed(eq(3L)) } just Runs
 
         //when
-        testScope.launch { underTest.markDownloadAsFailed("test-item", "tv-sonarr") }
-
+        underTest.deleteFileAndSearch("test-item", "unknown-category")
 
         //then
-        testScope.advanceUntilIdle()
-        assertEquals(30L, testScope.currentTime)
-        await().untilAsserted {
-            coVerify(exactly = 1) { sonarrApiClient.failed(eq(3L)) }
-        }
-
-    }
-
-    //TODO: test that it waits
-
-    fun getThreadpoolExecutor(): ThreadPoolTaskExecutor {
-        val tpte = ThreadPoolTaskExecutor()
-        tpte.corePoolSize = 1
-        tpte.initialize()
-        return tpte
+        coVerify(exactly = 0) { sonarrApiClient.deleteFileAndSearch(any()) }
     }
 }

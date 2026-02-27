@@ -8,6 +8,7 @@ data class RadarrParseResponse(
 ) {
     @Serializable
     data class Movie(
-        val id: Long
+        val id: Long,
+        val movieFileId: Long = 0
     )
 }

@@ -8,6 +8,7 @@ data class SonarrParseResponse(
 ) {
     @Serializable
     data class Episode(
-        val id: Long
+        val id: Long,
+        val episodeFileId: Long = 0
     )
 }
