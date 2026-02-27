@@ -226,17 +226,13 @@ class RealDebridClient(
                 return response.body<SuccessfulAddMagnetResponse>()
             }
 
-            HttpStatusCode.ServiceUnavailable -> {
+            else -> {
                 try {
                     val errorMessage = Json.decodeFromString(RealDebridErrorMessage.serializer(), response.body())
                     return FailedAddMagnetResponse(errorMessage.error)
                 } catch (_: Exception) {
                     throwDebridProviderException(response, "/torrents/addMagnet", payload)
                 }
-            }
-
-            else -> {
-                throwDebridProviderException(response, "/torrents/addMagnet", payload)
             }
         }
     }
