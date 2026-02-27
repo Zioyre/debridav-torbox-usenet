@@ -13,7 +13,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import org.apache.commons.lang.StringUtils
+import org.apache.commons.lang3.Strings
 import org.hibernate.engine.jdbc.proxy.BlobProxy
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -246,7 +246,7 @@ class DatabaseFileService(
 
     @Transactional
     fun createDirectory(path: String): DbDirectory {
-        return getOrCreateDirectory(if (path != "/") StringUtils.removeEnd(path, "/") else path)
+        return getOrCreateDirectory(if (path != "/") Strings.CS.removeEnd(path, "/") else path)
     }
 
     @Transactional
