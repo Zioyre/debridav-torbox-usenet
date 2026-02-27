@@ -26,14 +26,14 @@ services:
       - EASYNEWS_PASSWORD=${EASYNEWS_PASSWORD}
       - TORBOX_APIKEY=${TORBOX_API_KEY}
     ports:
-      - ${DEBRIDAV_PORT}:8080
+      - 8081:8080
       - "8000:8000"
     networks:
       - debridav-network
     volumes:
       - ${DEBRIDAV_ROOT_HOST_FS}:${DEBRIDAV_ROOT_PATH}
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/actuator/health/readiness" ]
+      test: [ "CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/8080 && echo -e \"GET /actuator/health/readiness HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n\" >&3 && grep -q \"200\" <&3'" ]
       interval: 2s
       start_period: 2s
       retries: 1000
