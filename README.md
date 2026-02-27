@@ -1,12 +1,8 @@
 # DebriDav
 
-[![build](https://github.com/skjaere/debridav/actions/workflows/build.yaml/badge.svg)](#)
+[![build](https://github.com/skjaere/DebriDav/actions/workflows/ci.yml/badge.svg)](https://github.com/skjaere/DebriDav/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/skjaere/debridav/graph/badge.svg?token=LIE8M1XE4H)](https://codecov.io/gh/skjaere/debridav)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-6DB33F?logo=springboot&logoColor=fff)](#)
-[![Kotlin](https://img.shields.io/badge/Kotlin-%237F52FF.svg?logo=kotlin&logoColor=white)](#)
-[![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=fff)](#)
 
 [![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/rivenmedia)
 
@@ -60,36 +56,37 @@ will attempt to use the search feature to find an approximate match for the name
 funkypenguin of Elfhosted has created [an indexer](https://github.com/elfhosted/fakearr) that pairs well with DebriDav
 and Easynews.
 
-## Caching
+### Note about TorBox
 
-When a new video file is added to the library, this file will typically be read by multiple services attempting to
-extract metadata from it. This can result in a lot of calls to the debrid provider that hosts the file, and a slow
-import process.
+TorBox's usenet features are not yet supported.
 
-To help with this, DebriDav features an opinionated byte cache designed to cache requests to extract metadata from
-media files. It does this by caching the bytes of a request that only read below a defined threshold of bytes
-( default 5mb ). If you use rclone to mount DebriDav, it is recommended to disable its cache for this reason.
+## NNTP / Usenet streaming
 
-To purge the cache, you may send a `DELETE` request to `http://<debridav>/actuator/cache`. If using the example docker
-compose, you may use `curl -X DELETE http://localhost:8888/actuator/cache`.
+DebriDav can stream content directly from a usenet provider over NNTP, without requiring a debrid service.
+When enabled, NZB files sent via the SABnzbd API are imported and their contents are made available as
+streamable virtual files through WebDAV, just like debrid-backed content.
 
-To disable caching completely, set `DEBRIDAV_CHUNKCACHINGSIZETHRESHOLD=0`
+This feature includes:
+- NZB import and metadata extraction (archive contents, file sizes, etc.)
+- Direct streaming from your usenet provider — no intermediate download step
+- Support for both archive-based and raw NZBs, including nested archives
+- Health checking with automatic repair via Sonarr/Radarr integration
 
-## Cache configuration
+### NNTP configuration
 
-`DEBRIDAV_CHUNKCACHINGGRACEPERIOD` controls the amount of time that should pass from the last time the item is
-read from the cache until it should be deleted in string format ( ie 10m, 2h, 4d ), or 0m to keep them until
-manually cleared. The default value is 0m ( off )
-`DEBRIDAV_CHUNKCACHINGSIZETHRESHOLD` controls the maxiumum size of byte range requests to cache in bytes.
-The default value is 5120000 ( 5Mb )
-`DEBRIDAV_CACHEMAXSIZE` controls the max size of the cache in gigabytes. If the size of the cache exceeds this number,
-the items which were accessed the longest time ago will be purged from the cache to make space for the new entry.
-
-## Migrating to 0.8.0
-
-Since 0.8.0 DebriDav uses a PostgreSQL database to store it's content. Unless disabled by setting
-`DEBRIDAV_ENABLEFILEIMPORTONSTARTUP` to `false`, DebriDav will attempt to import existing content into the database.
-It is recommended to disable this feature after a successful import to improve startup time.
+| Environment variable                 | Description                                                                                     | Default   |
+|--------------------------------------|-------------------------------------------------------------------------------------------------|-----------|
+| NNTP_ENABLED                         | Enable NNTP/usenet support                                                                      | `false`   |
+| NNTP_HOST                            | NNTP server hostname                                                                            |           |
+| NNTP_PORT                            | NNTP server port                                                                                | `563`     |
+| NNTP_USERNAME                        | NNTP server username                                                                            |           |
+| NNTP_PASSWORD                        | NNTP server password                                                                            |           |
+| NNTP_USETLS                          | Use TLS for NNTP connections                                                                    | `true`    |
+| NNTP_CONCURRENCY                     | Number of concurrent article downloads per stream                                               | `4`       |
+| NNTP_MAXCONNECTIONS                  | Maximum number of NNTP connections in the pool                                                  | `8`       |
+| NNTP_READAHEADSEGMENTS               | Number of segments to read ahead during streaming                                               | same as concurrency |
+| NNTP_HEALTHCHECKINTERVAL             | How often to health-check imported NZBs (ISO-8601 duration)                                     | `P7D`     |
+| NNTP_HEALTHCHECKPOLLRATE             | How often to poll the health check queue (ISO-8601 duration)                                    | `PT5M`    |
 
 ## Monitoring
 

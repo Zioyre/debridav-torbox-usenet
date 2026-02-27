@@ -99,4 +99,4 @@ hamcrest = { module = "org.hamcrest:hamcrest", version.ref = "hamcrest" }
 sardine = { module = "com.github.lookfirst:sardine", version.ref = "sardine" }
 nzb-streamer = { module = "com.github.skjaere:nzb-streamer", version.ref = "nzb-streamer" }
 pgmq-kotlin-jvm = { module = "com.vdsirotkin.pgmq:pgmq-kotlin-jvm", version.ref = "pgmq-kotlin" }
-mock-nntp-server = { module = "io.skjaere.mocknntp:mock-nntp-server", version.ref = "mock-nntp-server" }
+mock-nntp-server = { module = "com.github.skjaere:mock-nntp-server", version.ref = "mock-nntp-server" }
