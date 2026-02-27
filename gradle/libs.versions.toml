@@ -20,7 +20,7 @@ sardine = "5.13"
 sentry = "8.32.0"
 nzb-streamer = "v0.6.0"
 pgmq-kotlin = "0.1.0"
-mock-nntp-server = "0.2.0"
+mock-nntp-server = "v0.2.0"
 
 [libraries]
 # Kotlin
