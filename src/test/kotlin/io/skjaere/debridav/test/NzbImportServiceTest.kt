@@ -43,25 +43,25 @@ class NzbImportServiceTest {
     private val usenetRepository = mockk<UsenetRepository>()
     private val pgmqClient = mockk<PgmqClient>()
     private val databaseFileService = mockk<DatabaseFileService>()
-    private val config = DebridavConfigurationProperties(
-        rootPath = "/",
-        downloadPath = "/downloads",
-        mountPath = "/data",
-        debridClients = listOf(DebridProvider.EASYNEWS),
-        waitAfterMissing = Duration.ZERO,
-        waitAfterProviderError = Duration.ZERO,
-        waitAfterNetworkError = Duration.ZERO,
-        waitAfterClientError = Duration.ZERO,
-        retriesOnProviderError = 0,
-        delayBetweenRetries = Duration.ZERO,
-        connectTimeoutMilliseconds = 5000,
-        readTimeoutMilliseconds = 30000,
-        shouldDeleteNonWorkingFiles = false,
-        torrentLifetime = Duration.ofHours(1),
-        enableFileImportOnStartup = false,
-        defaultCategories = emptyList(),
+    private val config = DebridavConfigurationProperties().apply {
+        rootPath = "/"
+        downloadPath = "/downloads"
+        mountPath = "/data"
+        debridClients = listOf(DebridProvider.EASYNEWS)
+        waitAfterMissing = Duration.ZERO
+        waitAfterProviderError = Duration.ZERO
+        waitAfterNetworkError = Duration.ZERO
+        waitAfterClientError = Duration.ZERO
+        retriesOnProviderError = 0
+        delayBetweenRetries = Duration.ZERO
+        connectTimeoutMilliseconds = 5000
+        readTimeoutMilliseconds = 30000
+        shouldDeleteNonWorkingFiles = false
+        torrentLifetime = Duration.ofHours(1)
+        enableFileImportOnStartup = false
+        defaultCategories = emptyList()
         localEntityMaxSizeMb = 100
-    )
+    }
 
     private val underTest = NzbImportService(
         nzbStreamer, nzbDocumentRepository, usenetRepository,

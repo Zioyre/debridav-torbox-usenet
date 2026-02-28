@@ -19,6 +19,9 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import io.ktor.client.statement.bodyAsText
+import io.skjaere.debridav.config.ConfigurationTester
+import io.skjaere.debridav.config.TestResult
 import io.skjaere.debridav.configuration.DebridavConfigurationProperties
 import io.skjaere.debridav.debrid.DebridProvider
 import io.skjaere.debridav.debrid.TorrentMagnet
@@ -47,11 +50,11 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
+import kotlin.reflect.KClass
 
 private const val CREATED = 204
 private const val NOT_FOUND = 404
@@ -59,7 +62,6 @@ private const val LINK_ID_MAP_KEY = "linkId"
 private const val TORRENT_ID_MAP_KEY = "torrentId"
 
 @Component
-@ConditionalOnExpression($$"#{'${debridav.debrid-clients}'.contains('real_debrid')}")
 @Suppress("TooManyFunctions")
 class RealDebridClient(
     private val realDebridConfigurationProperties: RealDebridConfigurationProperties,
@@ -68,7 +70,7 @@ class RealDebridClient(
     private val realDebridTorrentService: RealDebridTorrentService,
     private val realDebridDownloadService: RealDebridDownloadService,
     private val realDebridRateLimiter: RateLimiter
-) : DebridCachedTorrentClient, StreamableLinkPreparable by DefaultStreamableLinkPreparer(
+) : DebridCachedTorrentClient, ConfigurationTester, StreamableLinkPreparable by DefaultStreamableLinkPreparer(
     httpClient,
     debridavConfigurationProperties,
     realDebridRateLimiter
@@ -404,5 +406,25 @@ class RealDebridClient(
 
     private suspend fun isLinkAlive(link: String): Boolean {
         return realDebridRateLimiter.executeSuspendFunction { httpClient.head(link).status.isSuccess() }
+    }
+
+    override val configurationClass: KClass<*> = RealDebridConfigurationProperties::class
+    override val label: String = "Real-Debrid"
+
+    override suspend fun test(overrides: Map<String, String>): TestResult = try {
+        val baseUrl = overrides["real-debrid.base-url"] ?: realDebridConfigurationProperties.baseUrl
+        val apiKey = overrides["real-debrid.api-key"] ?: realDebridConfigurationProperties.apiKey
+
+        val response = httpClient.get("$baseUrl/user") {
+            accept(ContentType.Application.Json)
+            bearerAuth(apiKey)
+        }
+        if (response.status.isSuccess()) {
+            TestResult(success = true, message = "Connected successfully")
+        } else {
+            TestResult(success = false, message = "HTTP ${response.status.value}: ${response.bodyAsText()}")
+        }
+    } catch (e: Exception) {
+        TestResult(success = false, message = e.message ?: "Unknown error")
     }
 }

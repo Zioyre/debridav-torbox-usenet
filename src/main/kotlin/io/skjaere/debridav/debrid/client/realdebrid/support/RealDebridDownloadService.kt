@@ -17,13 +17,11 @@ import io.skjaere.debridav.debrid.client.realdebrid.model.RealDebridDownloadRepo
 import io.skjaere.debridav.torrent.TorrentHash
 import jakarta.transaction.Transactional
 import kotlinx.coroutines.runBlocking
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.stereotype.Service
 
 private const val BULK_SIZE = 100
 
 @Service
-@ConditionalOnExpression("#{'\${debridav.debrid-clients}'.contains('real_debrid')}")
 class RealDebridDownloadService(
     private val realDebridDownloadRepository: RealDebridDownloadRepository,
     private val realDebridConfigurationProperties: RealDebridConfigurationProperties,

@@ -61,6 +61,7 @@ tasks.jacocoTestReport {
 
 dependencies {
     implementation(platform(org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES))
+    implementation(platform("org.springframework.cloud:spring-cloud-dependencies:${libs.versions.spring.cloud.get()}"))
 
     implementation(libs.spring.boot.starter.webmvc)
     implementation(libs.jackson.module.kotlin)
@@ -97,6 +98,11 @@ dependencies {
     implementation(libs.sentry.spring.boot)
     implementation(libs.sentry.logback)
     implementation(libs.pgmq.kotlin.jvm)
+    implementation(libs.spring.cloud.context)
+    implementation(libs.spring.boot.starter.security)
+    implementation(libs.jjwt.api)
+    runtimeOnly(libs.jjwt.impl)
+    runtimeOnly(libs.jjwt.jackson)
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 
@@ -114,6 +120,7 @@ dependencies {
     testImplementation(libs.sardine)
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.mock.nntp.server)
+    testImplementation(libs.spring.boot.starter.security.test)
 }
 
 java {

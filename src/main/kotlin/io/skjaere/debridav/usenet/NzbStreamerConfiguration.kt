@@ -1,5 +1,6 @@
 package io.skjaere.debridav.usenet
 
+import io.skjaere.debridav.config.ConfigProperty
 import io.skjaere.nzbstreamer.NzbStreamer
 import io.skjaere.nzbstreamer.config.NntpConfig
 import io.skjaere.nzbstreamer.config.SeekConfig
@@ -12,20 +13,20 @@ import java.time.Duration
 
 @Suppress("MagicNumber")
 @ConfigurationProperties(prefix = "nntp")
-data class NntpConfigurationProperties(
-    val enabled: Boolean = false,
-    val host: String = "",
-    val port: Int = 563,
-    val username: String = "",
-    val password: String = "",
-    val useTls: Boolean = true,
-    val concurrency: Int = 4,
-    val maxConnections: Int = 8,
-    val readAheadSegments: Int? = null,
-    val forwardThresholdBytes: Long = 102400L,
-    val healthCheckInterval: Duration = Duration.ofDays(7),
-    val healthCheckPollRate: Duration = Duration.ofMinutes(5)
-)
+class NntpConfigurationProperties {
+    @ConfigProperty(name = "Enabled", description = "Enable NNTP")
+    var enabled: Boolean = false
+    @ConfigProperty(name = "Concurrency", description = "NNTP streaming concurrency")
+    var concurrency: Int = 4
+    var readAheadSegments: Int? = null
+    @ConfigProperty(name = "Forward Threshold Bytes", description = "NNTP forward threshold bytes")
+    var forwardThresholdBytes: Long = 102400L
+    @ConfigProperty(name = "Health Check Interval", description = "NNTP health check interval")
+    var healthCheckInterval: Duration = Duration.ofDays(7)
+    @ConfigProperty(name = "Health Check Poll Rate", description = "NNTP health check poll rate")
+    var healthCheckPollRate: Duration = Duration.ofMinutes(5)
+    var pools: List<NntpPoolProperties> = emptyList()
+}
 
 @Configuration
 class NzbStreamerConfiguration {

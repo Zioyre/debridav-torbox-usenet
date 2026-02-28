@@ -17,18 +17,18 @@ import javax.sql.DataSource
 
 @Suppress("MagicNumber")
 @ConfigurationProperties(prefix = "pgmq")
-data class PgmqConfigurationProperties(
-    val defaultVisibilityTimeout: Duration = Duration.ofMinutes(5),
-    val importConcurrency: Int = 2,
-    val importVisibilityTimeout: Duration = Duration.ofMinutes(10),
-    val importPollInterval: Duration = Duration.ofSeconds(2),
-    val healthCheckConcurrency: Int = 1,
-    val healthCheckVisibilityTimeout: Duration = Duration.ofMinutes(5),
-    val healthCheckPollInterval: Duration = Duration.ofSeconds(10),
-    val healthRepairConcurrency: Int = 2,
-    val healthRepairVisibilityTimeout: Duration = Duration.ofMinutes(2),
-    val healthRepairPollInterval: Duration = Duration.ofSeconds(5)
-)
+class PgmqConfigurationProperties {
+    var defaultVisibilityTimeout: Duration = Duration.ofMinutes(5)
+    var importConcurrency: Int = 2
+    var importVisibilityTimeout: Duration = Duration.ofMinutes(10)
+    var importPollInterval: Duration = Duration.ofSeconds(2)
+    var healthCheckConcurrency: Int = 1
+    var healthCheckVisibilityTimeout: Duration = Duration.ofMinutes(5)
+    var healthCheckPollInterval: Duration = Duration.ofSeconds(10)
+    var healthRepairConcurrency: Int = 2
+    var healthRepairVisibilityTimeout: Duration = Duration.ofMinutes(2)
+    var healthRepairPollInterval: Duration = Duration.ofSeconds(5)
+}
 
 @Configuration
 @ConditionalOnProperty("nntp.enabled", havingValue = "true")
