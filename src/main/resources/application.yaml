@@ -119,16 +119,17 @@ radarr:
 
 nntp:
   enabled: false
-  #host:
-  port: 563
-  username:
-  password:
-  use-tls: true
   concurrency: 4
-  max-connections: 60
   forward-threshold-bytes: 102400
   health-check-interval: 7d
   health-check-poll-rate: PT5M
+  pools:
+    - host:
+      port: 563
+      username:
+      password:
+      use-tls: true
+      max-connections: 60
 
 pgmq:
   default-visibility-timeout: 5m

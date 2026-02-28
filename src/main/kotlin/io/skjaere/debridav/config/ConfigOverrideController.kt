@@ -15,7 +15,8 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/v1/config")
 class ConfigOverrideController(
     private val service: ConfigOverrideService,
-    private val registry: ConfigPropertyRegistry
+    private val registry: ConfigPropertyRegistry,
+    private val nntpPoolTester: NntpPoolTester
 ) {
     @GetMapping
     fun listAll(): ResponseEntity<List<ConfigOverrideDto>> =
@@ -39,6 +40,33 @@ class ConfigOverrideController(
     @GetMapping("/testable")
     fun listTestable(): ResponseEntity<List<TestablePrefixDto>> =
         ResponseEntity.ok(registry.getTestablePrefixes())
+
+    @GetMapping("/nntp-pools")
+    fun getNntpPools(): ResponseEntity<List<NntpPoolDto>> =
+        ResponseEntity.ok(service.getNntpPools())
+
+    @PutMapping("/nntp-pools")
+    fun saveNntpPools(@RequestBody pools: List<NntpPoolDto>): ResponseEntity<List<NntpPoolDto>> {
+        service.saveNntpPools(pools)
+        return ResponseEntity.ok(service.getNntpPools())
+    }
+
+    @PostMapping("/nntp-pools/test")
+    fun testNntpPool(@RequestBody pool: NntpPoolDto): ResponseEntity<ConfigTestResultDto> {
+        val start = System.currentTimeMillis()
+        val result = runBlocking { nntpPoolTester.test(pool) }
+        val durationMs = System.currentTimeMillis() - start
+
+        return ResponseEntity.ok(
+            ConfigTestResultDto(
+                prefix = "nntp",
+                label = "NNTP Pool",
+                success = result.success,
+                message = result.message,
+                durationMs = durationMs
+            )
+        )
+    }
 
     @PostMapping("/test/{prefix}")
     fun test(

@@ -6,24 +6,22 @@ import io.skjaere.nzbstreamer.NzbStreamer
 import io.skjaere.nzbstreamer.config.NntpConfig
 import jakarta.transaction.Transactional
 import org.slf4j.LoggerFactory
-import org.springframework.cloud.context.refresh.ContextRefresher
-import org.springframework.core.env.ConfigurableEnvironment
-import org.springframework.core.env.EnumerablePropertySource
+import org.springframework.core.env.Environment
 import org.springframework.stereotype.Service
 import java.time.Instant
 
 @Service
 class ConfigOverrideService(
     private val repository: ConfigOverrideRepository,
-    private val environment: ConfigurableEnvironment,
+    private val environment: Environment,
     private val registry: ConfigPropertyRegistry,
     private val nntpConfig: NntpConfigurationProperties,
-    private val contextRefresher: ContextRefresher,
-    private val dbPropertySourceInitializer: DatabasePropertySourceInitializer,
     private val nzbStreamer: NzbStreamer? = null
 ) {
+    private val logger = LoggerFactory.getLogger(ConfigOverrideService::class.java)
     companion object {
         private const val MASKED = "***"
+        private const val POOL_PREFIX = "nntp.pools["
     }
 
     fun listAll(): List<ConfigOverrideDto> {
@@ -103,28 +101,6 @@ class ConfigOverrideService(
         refreshEnvironment()
 
         return getEffective(key)
-    }
-
-    private fun refreshEnvironment() {
-        val propertySource = dbPropertySourceInitializer.getOrCreatePropertySource()
-        val overrides = repository.findAll().associate { it.propKey to (it.propValue ?: "") }
-        propertySource.replaceAll(overrides)
-        contextRefresher.refreshEnvironment()
-        logger.info("Refreshed environment with {} database override(s)", overrides.size)
-    }
-
-    private fun getDefaultValue(key: String): String? {
-        for (source in environment.propertySources) {
-            if (source.name == DatabasePropertySource.NAME) continue
-            if (source is EnumerablePropertySource<*>) {
-                val value = source.getProperty(key)
-                if (value != null) return value.toString()
-            } else {
-                val value = source.getProperty(key)
-                if (value != null) return value.toString()
-            }
-        }
-        return null
     }
 
     fun getNntpPools(): List<NntpPoolDto> {

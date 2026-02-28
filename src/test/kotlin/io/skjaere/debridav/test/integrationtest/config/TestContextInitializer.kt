@@ -59,9 +59,9 @@ class TestContextInitializer : ApplicationContextInitializer<ConfigurableApplica
             "spring.datasource.username=postgres",
             "spring.datasource.password=postgres",
             "easynews.api-base-url=http://localhost:$port/easynews",
-            "nntp.host=${mockNntpServerContainer.nntpHost}",
-            "nntp.port=${mockNntpServerContainer.nntpPort}",
-            "nntp.use-tls=false"
+            "nntp.pools[0].host=${mockNntpServerContainer.nntpHost}",
+            "nntp.pools[0].port=${mockNntpServerContainer.nntpPort}",
+            "nntp.pools[0].use-tls=false"
         ).applyTo(applicationContext)
     }
 }
