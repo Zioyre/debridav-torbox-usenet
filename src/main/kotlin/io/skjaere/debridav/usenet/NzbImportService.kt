@@ -5,7 +5,11 @@ import io.skjaere.debridav.configuration.DebridavConfigurationProperties
 import io.skjaere.debridav.fs.DatabaseFileService
 import io.skjaere.debridav.fs.NzbContents
 import io.skjaere.debridav.repository.NzbDocumentRepository
+import io.skjaere.debridav.repository.NzbImportRepository
 import io.skjaere.debridav.repository.UsenetRepository
+import io.skjaere.debridav.usenet.queue.NzbImportFileJson
+import io.skjaere.debridav.usenet.queue.NzbImportRecord
+import io.skjaere.debridav.usenet.queue.NzbImportStatus
 import io.skjaere.debridav.usenet.nzb.NzbArchiveType
 import io.skjaere.debridav.usenet.nzb.NzbDocumentEntity
 import io.skjaere.debridav.usenet.nzb.NzbFileJson
@@ -31,18 +35,20 @@ class NzbImportService(
     private val nzbStreamer: NzbStreamer,
     private val nzbDocumentRepository: NzbDocumentRepository,
     private val usenetRepository: UsenetRepository,
+    private val nzbImportRepository: NzbImportRepository,
     private val pgmqClient: PgmqClient,
     private val databaseFileService: DatabaseFileService,
     private val debridavConfigurationProperties: DebridavConfigurationProperties
 ) {
     private val logger = LoggerFactory.getLogger(NzbImportService::class.java)
 
-    fun scheduleImport(nzbBytes: ByteArray, usenetDownload: UsenetDownload) {
+    fun scheduleImport(nzbBytes: ByteArray, usenetDownload: UsenetDownload, nzbImportRecordId: Long) {
         pgmqClient.send(
             "nzb_import",
             NzbImportMessage(
                 nzbBytesBase64 = Base64.getEncoder().encodeToString(nzbBytes),
-                usenetDownloadId = usenetDownload.id!!
+                usenetDownloadId = usenetDownload.id!!,
+                nzbImportRecordId = nzbImportRecordId
             )
         )
     }
@@ -53,8 +59,14 @@ class NzbImportService(
         val usenetDownload = usenetRepository.findById(taskData.usenetDownloadId).orElseThrow {
             IllegalStateException("UsenetDownload not found: ${taskData.usenetDownloadId}")
         }
+        val importRecord = nzbImportRepository.findById(taskData.nzbImportRecordId).orElseThrow {
+            IllegalStateException("NzbImportRecord not found: ${taskData.nzbImportRecordId}")
+        }
         try {
             logger.info("Importing ${usenetDownload.name}")
+            importRecord.status = NzbImportStatus.IMPORTING
+            nzbImportRepository.save(importRecord)
+
             val nzbBytes = Base64.getDecoder().decode(taskData.nzbBytesBase64)
             val prepareResult = runBlocking { nzbStreamer.prepare(nzbBytes) }
 
@@ -65,7 +77,9 @@ class NzbImportService(
                         usenetDownload.name,
                         prepareResult.message
                     )
-                    usenetDownload.status = UsenetDownloadStatus.FAILED
+                    usenetDownload.status = UsenetDownloadStatus.ARTICLES_MISSING
+                    importRecord.status = NzbImportStatus.ARTICLES_MISSING
+                    importRecord.errorMessage = prepareResult.message
                     return
                 }
 
@@ -77,6 +91,8 @@ class NzbImportService(
                         prepareResult.cause
                     )
                     usenetDownload.status = UsenetDownloadStatus.FAILED
+                    importRecord.status = NzbImportStatus.FAILED
+                    importRecord.errorMessage = prepareResult.cause.stackTraceToString()
                     return
                 }
 
@@ -87,6 +103,8 @@ class NzbImportService(
                         prepareResult.message
                     )
                     usenetDownload.status = UsenetDownloadStatus.FAILED
+                    importRecord.status = NzbImportStatus.FAILED
+                    importRecord.errorMessage = prepareResult.message
                     return
                 }
 
@@ -118,14 +136,27 @@ class NzbImportService(
                     }.toMutableList()
 
                     usenetDownload.status = UsenetDownloadStatus.COMPLETED
+                    importRecord.status = NzbImportStatus.COMPLETED
+                    importRecord.size = savedDocument.streamableFiles.sumOf { it.totalSize }
+                    importRecord.archiveType = savedDocument.archiveType.name
+                    importRecord.files = savedDocument.streamableFiles.map { sf ->
+                        NzbImportFileJson(
+                            path = "${debridavConfigurationProperties.downloadPath}" +
+                                    "/${usenetDownload.name}/${sf.path}",
+                            size = sf.totalSize
+                        )
+                    }
                     logger.info("Imported ${usenetDownload.name}")
                 }
             }
         } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
             logger.error("Failed to import NZB for download '${usenetDownload.name}'", e)
             usenetDownload.status = UsenetDownloadStatus.FAILED
+            importRecord.status = NzbImportStatus.FAILED
+            importRecord.errorMessage = e.stackTraceToString()
         } finally {
             usenetRepository.save(usenetDownload)
+            nzbImportRepository.save(importRecord)
         }
     }
 

@@ -76,7 +76,7 @@ class PgmqSpringConfiguration {
         pollInterval = props.importPollInterval
     ) { msg ->
         nzbImportService.executeImport(
-            NzbImportTaskData(msg.nzbBytesBase64, msg.usenetDownloadId)
+            NzbImportTaskData(msg.nzbBytesBase64, msg.usenetDownloadId, msg.nzbImportRecordId)
         )
     }
 

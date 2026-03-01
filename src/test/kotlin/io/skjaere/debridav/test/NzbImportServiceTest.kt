@@ -12,13 +12,17 @@ import io.skjaere.debridav.fs.DatabaseFileService
 import io.skjaere.debridav.fs.NzbContents
 import io.skjaere.debridav.fs.RemotelyCachedEntity
 import io.skjaere.debridav.repository.NzbDocumentRepository
+import io.skjaere.debridav.repository.NzbImportRepository
 import io.skjaere.debridav.repository.UsenetRepository
 import io.skjaere.debridav.usenet.NzbImportService
 import io.skjaere.debridav.usenet.NzbImportTaskData
 import io.skjaere.debridav.usenet.UsenetDownload
 import io.skjaere.debridav.usenet.UsenetDownloadStatus
+import io.skjaere.debridav.usenet.nzb.NzbArchiveType
 import io.skjaere.debridav.usenet.nzb.NzbDocumentEntity
 import io.skjaere.debridav.usenet.nzb.StreamableFileJson
+import io.skjaere.debridav.usenet.queue.NzbImportRecord
+import io.skjaere.debridav.usenet.queue.NzbImportStatus
 import io.skjaere.nntp.ArticleNotFoundException
 import io.skjaere.nntp.NntpConnectionException
 import io.skjaere.nntp.YencHeaders
@@ -41,6 +45,7 @@ class NzbImportServiceTest {
     private val nzbStreamer = mockk<NzbStreamer>()
     private val nzbDocumentRepository = mockk<NzbDocumentRepository>()
     private val usenetRepository = mockk<UsenetRepository>()
+    private val nzbImportRepository = mockk<NzbImportRepository>()
     private val pgmqClient = mockk<PgmqClient>()
     private val databaseFileService = mockk<DatabaseFileService>()
     private val config = DebridavConfigurationProperties().apply {
@@ -65,7 +70,7 @@ class NzbImportServiceTest {
 
     private val underTest = NzbImportService(
         nzbStreamer, nzbDocumentRepository, usenetRepository,
-        pgmqClient, databaseFileService, config
+        nzbImportRepository, pgmqClient, databaseFileService, config
     )
 
     private val nzbBytes = "<nzb>test</nzb>".toByteArray()
@@ -80,11 +85,21 @@ class NzbImportServiceTest {
         return download
     }
 
+    private fun createImportRecord(id: Long = 100L): NzbImportRecord {
+        val record = NzbImportRecord()
+        record.id = id
+        record.name = "test-release"
+        record.status = NzbImportStatus.QUEUED
+        return record
+    }
+
     @Test
     fun `executeImport sets COMPLETED on PrepareResult Success`() {
         // given
         val download = createUsenetDownload()
+        val importRecord = createImportRecord()
         every { usenetRepository.findById(1L) } returns Optional.of(download)
+        every { nzbImportRepository.findById(100L) } returns Optional.of(importRecord)
 
         val nzbFile = NzbFile(
             poster = "test", date = 0, subject = "test",
@@ -113,6 +128,7 @@ class NzbImportServiceTest {
 
         val savedDoc = NzbDocumentEntity().apply {
             id = 10L
+            archiveType = NzbArchiveType.RAR
             streamableFiles = listOf(
                 StreamableFileJson(
                     path = "video.mkv",
@@ -132,20 +148,28 @@ class NzbImportServiceTest {
         val savedSlot = slot<UsenetDownload>()
         every { usenetRepository.save(capture(savedSlot)) } answers { savedSlot.captured }
 
+        val importSlot = slot<NzbImportRecord>()
+        every { nzbImportRepository.save(capture(importSlot)) } answers { importSlot.captured }
+
         // when
-        underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 1L))
+        underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 1L, 100L))
 
         // then
         assertEquals(UsenetDownloadStatus.COMPLETED, savedSlot.captured.status)
+        assertEquals(NzbImportStatus.COMPLETED, importSlot.captured.status)
+        assertEquals(4000L, importSlot.captured.size)
+        assertEquals("RAR", importSlot.captured.archiveType)
         verify(exactly = 1) { nzbDocumentRepository.save(any()) }
         verify(exactly = 1) { databaseFileService.createDebridFile(any(), eq("abc123"), any()) }
     }
 
     @Test
-    fun `executeImport sets FAILED on PrepareResult MissingArticles`() {
+    fun `executeImport sets ARTICLES_MISSING on PrepareResult MissingArticles`() {
         // given
         val download = createUsenetDownload()
+        val importRecord = createImportRecord()
         every { usenetRepository.findById(1L) } returns Optional.of(download)
+        every { nzbImportRepository.findById(100L) } returns Optional.of(importRecord)
 
         coEvery { nzbStreamer.prepare(any()) } returns PrepareResult.MissingArticles(
             "Article not found: 430",
@@ -155,11 +179,16 @@ class NzbImportServiceTest {
         val savedSlot = slot<UsenetDownload>()
         every { usenetRepository.save(capture(savedSlot)) } answers { savedSlot.captured }
 
+        val importSlot = slot<NzbImportRecord>()
+        every { nzbImportRepository.save(capture(importSlot)) } answers { importSlot.captured }
+
         // when
-        underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 1L))
+        underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 1L, 100L))
 
         // then
-        assertEquals(UsenetDownloadStatus.FAILED, savedSlot.captured.status)
+        assertEquals(UsenetDownloadStatus.ARTICLES_MISSING, savedSlot.captured.status)
+        assertEquals(NzbImportStatus.ARTICLES_MISSING, importSlot.captured.status)
+        assertEquals("Article not found: 430", importSlot.captured.errorMessage)
         verify(exactly = 0) { nzbDocumentRepository.save(any()) }
     }
 
@@ -167,7 +196,9 @@ class NzbImportServiceTest {
     fun `executeImport sets FAILED on PrepareResult Failure`() {
         // given
         val download = createUsenetDownload()
+        val importRecord = createImportRecord()
         every { usenetRepository.findById(1L) } returns Optional.of(download)
+        every { nzbImportRepository.findById(100L) } returns Optional.of(importRecord)
 
         coEvery { nzbStreamer.prepare(any()) } returns PrepareResult.Failure(
             "Connection refused",
@@ -177,11 +208,15 @@ class NzbImportServiceTest {
         val savedSlot = slot<UsenetDownload>()
         every { usenetRepository.save(capture(savedSlot)) } answers { savedSlot.captured }
 
+        val importSlot = slot<NzbImportRecord>()
+        every { nzbImportRepository.save(capture(importSlot)) } answers { importSlot.captured }
+
         // when
-        underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 1L))
+        underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 1L, 100L))
 
         // then
         assertEquals(UsenetDownloadStatus.FAILED, savedSlot.captured.status)
+        assertEquals(NzbImportStatus.FAILED, importSlot.captured.status)
         verify(exactly = 0) { nzbDocumentRepository.save(any()) }
     }
 
@@ -189,7 +224,9 @@ class NzbImportServiceTest {
     fun `executeImport sets FAILED on PrepareResult UnsupportedArchive`() {
         // given
         val download = createUsenetDownload()
+        val importRecord = createImportRecord()
         every { usenetRepository.findById(1L) } returns Optional.of(download)
+        every { nzbImportRepository.findById(100L) } returns Optional.of(importRecord)
 
         coEvery { nzbStreamer.prepare(any()) } returns PrepareResult.UnsupportedArchive(
             "Unable to detect archive type from filenames or byte signatures",
@@ -199,11 +236,15 @@ class NzbImportServiceTest {
         val savedSlot = slot<UsenetDownload>()
         every { usenetRepository.save(capture(savedSlot)) } answers { savedSlot.captured }
 
+        val importSlot = slot<NzbImportRecord>()
+        every { nzbImportRepository.save(capture(importSlot)) } answers { importSlot.captured }
+
         // when
-        underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 1L))
+        underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 1L, 100L))
 
         // then
         assertEquals(UsenetDownloadStatus.FAILED, savedSlot.captured.status)
+        assertEquals(NzbImportStatus.FAILED, importSlot.captured.status)
         verify(exactly = 0) { nzbDocumentRepository.save(any()) }
     }
 
@@ -211,18 +252,24 @@ class NzbImportServiceTest {
     fun `executeImport sets FAILED on unexpected exception`() {
         // given
         val download = createUsenetDownload()
+        val importRecord = createImportRecord()
         every { usenetRepository.findById(1L) } returns Optional.of(download)
+        every { nzbImportRepository.findById(100L) } returns Optional.of(importRecord)
 
         coEvery { nzbStreamer.prepare(any()) } throws RuntimeException("unexpected error")
 
         val savedSlot = slot<UsenetDownload>()
         every { usenetRepository.save(capture(savedSlot)) } answers { savedSlot.captured }
 
+        val importSlot = slot<NzbImportRecord>()
+        every { nzbImportRepository.save(capture(importSlot)) } answers { importSlot.captured }
+
         // when
-        underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 1L))
+        underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 1L, 100L))
 
         // then
         assertEquals(UsenetDownloadStatus.FAILED, savedSlot.captured.status)
+        assertEquals(NzbImportStatus.FAILED, importSlot.captured.status)
     }
 
     @Test
@@ -232,26 +279,45 @@ class NzbImportServiceTest {
 
         // when/then
         kotlin.test.assertFailsWith<IllegalStateException> {
-            underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 999L))
+            underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 999L, 100L))
         }
     }
 
     @Test
-    fun `executeImport always saves UsenetDownload in finally block`() {
+    fun `executeImport throws when NzbImportRecord not found`() {
         // given
         val download = createUsenetDownload()
         every { usenetRepository.findById(1L) } returns Optional.of(download)
+        every { nzbImportRepository.findById(999L) } returns Optional.empty()
+
+        // when/then
+        kotlin.test.assertFailsWith<IllegalStateException> {
+            underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 1L, 999L))
+        }
+    }
+
+    @Test
+    fun `executeImport always saves both records in finally block`() {
+        // given
+        val download = createUsenetDownload()
+        val importRecord = createImportRecord()
+        every { usenetRepository.findById(1L) } returns Optional.of(download)
+        every { nzbImportRepository.findById(100L) } returns Optional.of(importRecord)
 
         coEvery { nzbStreamer.prepare(any()) } returns PrepareResult.MissingArticles(
             "missing", ArticleNotFoundException("missing")
         )
 
         every { usenetRepository.save(any<UsenetDownload>()) } answers { firstArg() }
+        every { nzbImportRepository.save(any<NzbImportRecord>()) } answers { firstArg() }
 
         // when
-        underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 1L))
+        underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 1L, 100L))
 
-        // then - save is called exactly once (in the finally block)
+        // then - save is called: once for IMPORTING status + once in finally block = 2
+        verify(exactly = 2) { nzbImportRepository.save(any<NzbImportRecord>()) }
         verify(exactly = 1) { usenetRepository.save(any<UsenetDownload>()) }
+        assertEquals(UsenetDownloadStatus.ARTICLES_MISSING, download.status)
+        assertEquals(NzbImportStatus.ARTICLES_MISSING, importRecord.status)
     }
 }

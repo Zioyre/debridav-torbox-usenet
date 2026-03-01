@@ -23,6 +23,8 @@ spring:
       max-lifetime: 180000000  # five hours
       idle-timeout: 0
       maximum-pool-size: 5
+  flyway:
+    out-of-order: true
 
 logging:
   level:

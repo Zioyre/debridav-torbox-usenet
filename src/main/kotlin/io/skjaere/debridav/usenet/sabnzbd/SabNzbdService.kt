@@ -7,10 +7,13 @@ import io.skjaere.debridav.debrid.UsenetRelease
 import io.skjaere.debridav.fs.DatabaseFileService
 import io.skjaere.debridav.fs.DebridFileContents
 import io.skjaere.debridav.fs.RemotelyCachedEntity
+import io.skjaere.debridav.repository.NzbImportRepository
 import io.skjaere.debridav.repository.UsenetRepository
 import io.skjaere.debridav.usenet.NzbImportService
 import io.skjaere.debridav.usenet.UsenetDownload
 import io.skjaere.debridav.usenet.UsenetDownloadStatus
+import io.skjaere.debridav.usenet.queue.NzbImportRecord
+import io.skjaere.debridav.usenet.queue.NzbImportStatus
 import io.skjaere.debridav.usenet.sabnzbd.model.HistorySlot
 import io.skjaere.debridav.usenet.sabnzbd.model.ListResponseDownloadSlot
 import io.skjaere.debridav.usenet.sabnzbd.model.Queue
@@ -47,7 +50,8 @@ class SabNzbdService(
     private val usenetConversionService: ConversionService,
     private val categoryService: CategoryService,
     private val resourceLoader: ResourceLoader,
-    private val nzbImportService: NzbImportService?
+    private val nzbImportService: NzbImportService?,
+    private val nzbImportRepository: NzbImportRepository?
 ) {
     private val logger = LoggerFactory.getLogger(SabNzbdService::class.java)
 
@@ -60,7 +64,14 @@ class SabNzbdService(
 
         if (nzbImportService != null) {
             val usenetDownload = createQueuedUsenetDownload(releaseName, hash, request.cat!!)
-            nzbImportService.scheduleImport(nzbBytes, usenetDownload)
+            val importRecord = NzbImportRecord().apply {
+                usenetDownloadId = usenetDownload.id
+                name = releaseName
+                category = request.cat
+                status = NzbImportStatus.QUEUED
+            }
+            val savedRecord = nzbImportRepository!!.save(importRecord)
+            nzbImportService.scheduleImport(nzbBytes, usenetDownload, savedRecord.id!!)
             return usenetDownload
         }
 

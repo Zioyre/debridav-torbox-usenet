@@ -7,6 +7,7 @@ import java.time.Duration
 
 @ConfigurationProperties(prefix = "debridav")
 class DebridavConfigurationProperties {
+    @ConfigProperty(name = "Root Path", description = "Root path")
     lateinit var rootPath: String
 
     @ConfigProperty(name = "Download Path", description = "Download path")

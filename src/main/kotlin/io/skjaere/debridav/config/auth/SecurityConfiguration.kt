@@ -39,8 +39,10 @@ class SecurityConfiguration(
                 // Config API is protected when auth is enabled
                 if (authConfig.enabled) {
                     auth.requestMatchers("/api/v1/config/**").authenticated()
+                    auth.requestMatchers("/api/v1/queue/**").authenticated()
                 } else {
                     auth.requestMatchers("/api/v1/config/**").permitAll()
+                    auth.requestMatchers("/api/v1/queue/**").permitAll()
                 }
 
                 // Conditionally protect qBittorrent API

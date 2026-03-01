@@ -1,6 +1,7 @@
 package io.skjaere.debridav.repository
 
 import io.skjaere.debridav.usenet.UsenetDownload
+import io.skjaere.debridav.usenet.UsenetDownloadStatus
 import jakarta.transaction.Transactional
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
