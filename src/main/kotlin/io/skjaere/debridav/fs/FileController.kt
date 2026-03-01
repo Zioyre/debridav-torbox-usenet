@@ -1,5 +1,6 @@
 package io.skjaere.debridav.fs
 
+import io.skjaere.debridav.config.auth.JwtService
 import kotlinx.coroutines.runBlocking
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -10,8 +11,27 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/v1/files")
 class FileController(
-    private val databaseFileService: DatabaseFileService
+    private val databaseFileService: DatabaseFileService,
+    private val jwtService: JwtService
 ) {
+    @GetMapping("/stream-url")
+    fun streamUrl(@RequestParam path: String): ResponseEntity<StreamUrlDto> {
+        val entity = databaseFileService.getFileAtPath(path)
+            ?: return ResponseEntity.notFound().build()
+
+        if (entity is DbDirectory) {
+            return ResponseEntity.badRequest().build()
+        }
+
+        val token = jwtService.generateStreamToken(path)
+        return ResponseEntity.ok(
+            StreamUrlDto(
+                url = "/api/v1/stream/t/$token",
+                expiresIn = JwtService.STREAM_TOKEN_EXPIRY_SECONDS
+            )
+        )
+    }
+
     @GetMapping("/detail")
     fun detail(@RequestParam path: String): ResponseEntity<FileDetailDto> {
         val entity = databaseFileService.getFileAtPath(path)

@@ -39,4 +39,34 @@ class JwtService(
     } catch (_: IllegalArgumentException) {
         null
     }
+
+    fun generateStreamToken(path: String): String {
+        val now = Date()
+        val expiration = Date(now.time + STREAM_TOKEN_EXPIRY_SECONDS * 1000)
+
+        return Jwts.builder()
+            .subject(path)
+            .claim("type", "stream")
+            .issuedAt(now)
+            .expiration(expiration)
+            .signWith(key)
+            .compact()
+    }
+
+    fun validateStreamToken(token: String): String? = try {
+        val claims = Jwts.parser()
+            .verifyWith(key)
+            .build()
+            .parseSignedClaims(token)
+            .payload
+        if (claims["type"] == "stream") claims.subject else null
+    } catch (_: JwtException) {
+        null
+    } catch (_: IllegalArgumentException) {
+        null
+    }
+
+    companion object {
+        const val STREAM_TOKEN_EXPIRY_SECONDS = 86400L // 24 hours
+    }
 }

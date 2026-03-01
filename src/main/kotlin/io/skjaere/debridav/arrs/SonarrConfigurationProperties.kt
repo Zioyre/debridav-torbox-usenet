@@ -10,9 +10,9 @@ class SonarrConfigurationProperties : ArrConfiguration {
     @ConfigProperty(name = "Host", description = "Sonarr host")
     override var host: String = ""
     @ConfigProperty(name = "Port", description = "Sonarr port")
-    override var port: Int = 8989
+    override val port: Int = 8989,
     @ConfigProperty(name = "API Base Path", description = "Sonarr API base path", advanced = true)
-    override var apiBasePath: String = "/api/v3"
+    override val apiBasePath: String = "/api/v3",
     @ConfigProperty(name = "API Key", description = "Sonarr API key", sensitive = true)
     override var apiKey: String = ""
     @ConfigProperty(name = "Category", description = "Sonarr category")

@@ -32,8 +32,9 @@ class SecurityConfiguration(
             .exceptionHandling { it.authenticationEntryPoint(unauthorizedEntryPoint()) }
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
             .authorizeHttpRequests { auth ->
-                // Auth endpoints are always public
+                // Auth and stream endpoints are always public
                 auth.requestMatchers("/api/v1/auth/**").permitAll()
+                auth.requestMatchers("/api/v1/stream/**").permitAll()
 
                 // Config API is protected when auth is enabled
                 if (authConfig.enabled) {
