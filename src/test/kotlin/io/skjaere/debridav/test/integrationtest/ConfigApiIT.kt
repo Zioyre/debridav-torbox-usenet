@@ -228,4 +228,32 @@ class ConfigApiIT {
 
         assertEquals("new-api-key-12345", premiumizeConfig.apiKey)
     }
+
+    @Test
+    fun `saving nntp pools twice does not cause duplicate key violation`() {
+        val poolJson = """[{"host":"news.example.com","port":563,"username":"user",""" +
+            """"password":"pass","useTls":true,"maxConnections":8,"priority":0}]"""
+
+        // First save
+        webTestClient.put()
+            .uri("/api/v1/config/nntp-pools")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(poolJson)
+            .exchange()
+            .expectStatus().isOk
+
+        val updatedPoolJson = """[{"host":"news2.example.com","port":563,"username":"user2",""" +
+            """"password":"pass2","useTls":true,"maxConnections":4,"priority":0}]"""
+
+        // Second save - should not throw DataIntegrityViolationException
+        webTestClient.put()
+            .uri("/api/v1/config/nntp-pools")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(updatedPoolJson)
+            .exchange()
+            .expectStatus().isOk
+            .expectBody()
+            .jsonPath("$[0].host").isEqualTo("news2.example.com")
+            .jsonPath("$[0].maxConnections").isEqualTo(4)
+    }
 }

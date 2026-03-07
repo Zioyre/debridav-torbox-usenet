@@ -25,8 +25,6 @@ import io.skjaere.debridav.usenet.queue.NzbImportRecord
 import io.skjaere.debridav.usenet.queue.NzbImportStatus
 import io.skjaere.nntp.ArticleNotFoundException
 import io.skjaere.nntp.NntpConnectionException
-import io.skjaere.nntp.YencHeaders
-import java.io.IOException
 import io.skjaere.nzbstreamer.NzbStreamer
 import io.skjaere.nzbstreamer.metadata.ExtractedMetadata
 import io.skjaere.nzbstreamer.metadata.NzbMetadataResponse
@@ -35,7 +33,10 @@ import io.skjaere.nzbstreamer.nzb.NzbDocument
 import io.skjaere.nzbstreamer.nzb.NzbFile
 import io.skjaere.nzbstreamer.nzb.NzbSegment
 import io.skjaere.nzbstreamer.stream.StreamableFile
+import io.skjaere.nntp.YencHeaders
+import java.io.IOException
 import org.junit.jupiter.api.Test
+import org.springframework.transaction.PlatformTransactionManager
 import java.time.Duration
 import java.util.*
 import kotlin.test.assertEquals
@@ -68,9 +69,17 @@ class NzbImportServiceTest {
         localEntityMaxSizeMb = 100
     }
 
+    /**
+     * A no-op PlatformTransactionManager that does not start real DB transactions.
+     * TransactionTemplate will still execute the callback directly, which is all
+     * we need for unit tests that already mock the repository methods.
+     */
+    private val platformTransactionManager = mockk<PlatformTransactionManager>(relaxed = true)
+
     private val underTest = NzbImportService(
         nzbStreamer, nzbDocumentRepository, usenetRepository,
-        nzbImportRepository, pgmqClient, databaseFileService, config
+        nzbImportRepository, pgmqClient, databaseFileService, config,
+        platformTransactionManager
     )
 
     private val nzbBytes = "<nzb>test</nzb>".toByteArray()
@@ -273,14 +282,16 @@ class NzbImportServiceTest {
     }
 
     @Test
-    fun `executeImport throws when UsenetDownload not found`() {
+    fun `executeImport throws when UsenetDownload not found on initial load`() {
         // given
         every { usenetRepository.findById(999L) } returns Optional.empty()
 
-        // when/then
-        kotlin.test.assertFailsWith<IllegalStateException> {
-            underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 999L, 100L))
-        }
+        // when - should return early without error (download may have been deleted)
+        underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 999L, 100L))
+
+        // then - no exception, no save calls
+        verify(exactly = 0) { usenetRepository.save(any<UsenetDownload>()) }
+        verify(exactly = 0) { nzbImportRepository.save(any<NzbImportRecord>()) }
     }
 
     @Test
@@ -314,10 +325,59 @@ class NzbImportServiceTest {
         // when
         underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 1L, 100L))
 
-        // then - save is called: once for IMPORTING status + once in finally block = 2
+        // then - nzbImportRepository.save is called: once for IMPORTING status (phase 1) + once in phase 3 = 2
         verify(exactly = 2) { nzbImportRepository.save(any<NzbImportRecord>()) }
         verify(exactly = 1) { usenetRepository.save(any<UsenetDownload>()) }
         assertEquals(UsenetDownloadStatus.ARTICLES_MISSING, download.status)
         assertEquals(NzbImportStatus.ARTICLES_MISSING, importRecord.status)
+    }
+
+    /**
+     * Reproduces the production bug: ObjectOptimisticLockingFailureException when
+     * the UsenetDownload row is deleted (e.g., via the SABnzbd delete API) while
+     * the long-running NNTP prepare is in flight.
+     *
+     * Before the fix, executeImport held a single @Transactional spanning the entire
+     * method including the NNTP I/O. If another transaction deleted the UsenetDownload
+     * row during that I/O, the transaction commit would fail with:
+     *   "Unexpected row count (expected row count 1 but was 0)
+     *    [update usenet_download ... where id=?]"
+     *
+     * After the fix, executeImport uses short-lived TransactionTemplate scopes so no
+     * transaction is held during I/O. The entity is re-fetched in the save phase; if
+     * it was deleted, the method completes gracefully without throwing.
+     */
+    @Test
+    fun `executeImport completes gracefully when UsenetDownload is deleted during NNTP IO`() {
+        // given
+        val download = createUsenetDownload(id = 102L)
+        val importRecord = createImportRecord(id = 86L)
+
+        // Phase 1 (load): download exists
+        // Phase 3 (save): download has been deleted by another thread/request
+        every { usenetRepository.findById(102L) } returnsMany listOf(
+            Optional.of(download),
+            Optional.empty()   // simulates concurrent deletion during NNTP I/O
+        )
+        every { nzbImportRepository.findById(86L) } returns Optional.of(importRecord)
+
+        coEvery { nzbStreamer.prepare(any()) } returns PrepareResult.MissingArticles(
+            "Article not found",
+            ArticleNotFoundException("Article not found")
+        )
+
+        val importSlot = slot<NzbImportRecord>()
+        every { nzbImportRepository.save(capture(importSlot)) } answers { importSlot.captured }
+
+        // when — must NOT throw ObjectOptimisticLockingFailureException
+        underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 102L, 86L))
+
+        // then
+        // UsenetDownload.save is never called because the row is gone
+        verify(exactly = 0) { usenetRepository.save(any<UsenetDownload>()) }
+        // The import record is still saved so we have a record of the failure
+        verify(exactly = 2) { nzbImportRepository.save(any<NzbImportRecord>()) }
+        assertEquals(NzbImportStatus.FAILED, importSlot.captured.status)
+        assertEquals("Download was deleted during import", importSlot.captured.errorMessage)
     }
 }

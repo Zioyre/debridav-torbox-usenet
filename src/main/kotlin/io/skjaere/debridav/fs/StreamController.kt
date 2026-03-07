@@ -19,6 +19,7 @@ class StreamController(
     private val databaseFileService: DatabaseFileService,
     private val streamableResourceFactory: StreamableResourceFactory
 ) {
+    @Suppress("ReturnCount")
     @GetMapping("/t/{token}")
     fun streamByToken(
         @PathVariable token: String,
@@ -71,6 +72,7 @@ class StreamController(
         resource.sendContent(response.outputStream, range, null, contentType)
     }
 
+    @Suppress("ReturnCount")
     private fun parseRangeHeader(header: String?, contentLength: Long): Range? {
         if (header == null || !header.startsWith("bytes=")) return null
         val rangeSpec = header.removePrefix("bytes=")

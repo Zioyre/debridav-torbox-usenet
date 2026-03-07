@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service
 
 @Service
 class NntpPoolTester {
+    @Suppress("TooGenericExceptionCaught", "ReturnCount")
     suspend fun test(pool: NntpPoolDto): TestResult {
         val selectorManager = SelectorManager(Dispatchers.IO)
         try {

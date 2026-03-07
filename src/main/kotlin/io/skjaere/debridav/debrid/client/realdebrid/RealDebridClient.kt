@@ -411,6 +411,7 @@ class RealDebridClient(
     override val configurationClass: KClass<*> = RealDebridConfigurationProperties::class
     override val label: String = "Real-Debrid"
 
+    @Suppress("TooGenericExceptionCaught")
     override suspend fun test(overrides: Map<String, String>): TestResult = try {
         val baseUrl = overrides["real-debrid.base-url"] ?: realDebridConfigurationProperties.baseUrl
         val apiKey = overrides["real-debrid.api-key"] ?: realDebridConfigurationProperties.apiKey

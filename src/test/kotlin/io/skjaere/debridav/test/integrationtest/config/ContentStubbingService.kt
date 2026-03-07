@@ -155,6 +155,33 @@ class ContentStubbingService(@Value("\${mockserver.port}") val port: Int) {
         )
     }
 
+    fun mockTruncatedStream() {
+        MockServerClient(
+            "localhost",
+            port
+        ).`when`(
+            HttpRequest.request()
+                .withMethod("GET")
+                .withPath("/truncatedLink"),
+            Times.exactly(1)
+        ).respond(
+            HttpResponse.response()
+                .withStatusCode(200)
+                .withBody("it works!".toByteArray())
+        )
+        MockServerClient(
+            "localhost",
+            port
+        ).`when`(
+            HttpRequest.request()
+                .withMethod("HEAD")
+                .withPath("/truncatedLink")
+        ).respond(
+            HttpResponse.response()
+                .withStatusCode(200)
+        )
+    }
+
     fun mockDeadLink() {
         MockServerClient(
             "localhost",

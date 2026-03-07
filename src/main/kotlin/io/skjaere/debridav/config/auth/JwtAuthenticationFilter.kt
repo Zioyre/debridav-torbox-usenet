@@ -20,6 +20,7 @@ class JwtAuthenticationFilter(
     ) {
         val authHeader = request.getHeader("Authorization")
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            @Suppress("MagicNumber")
             val token = authHeader.substring(7)
             val username = jwtService.validateTokenAndGetUsername(token)
             if (username != null && SecurityContextHolder.getContext().authentication == null) {

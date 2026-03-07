@@ -28,6 +28,7 @@ class ConfigPropertyRegistry(
 
     val properties: Map<String, ConfigPropertyMeta> get() = _properties
 
+    @Suppress("LoopWithTooManyJumpStatements")
     @PostConstruct
     fun init() {
         val beanNames = applicationContext.getBeanNamesForAnnotation(ConfigurationProperties::class.java)

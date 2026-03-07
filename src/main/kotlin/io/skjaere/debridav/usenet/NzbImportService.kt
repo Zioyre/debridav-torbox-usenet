@@ -25,7 +25,8 @@ import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
 import java.util.*
 
@@ -38,8 +39,10 @@ class NzbImportService(
     private val nzbImportRepository: NzbImportRepository,
     private val pgmqClient: PgmqClient,
     private val databaseFileService: DatabaseFileService,
-    private val debridavConfigurationProperties: DebridavConfigurationProperties
+    private val debridavConfigurationProperties: DebridavConfigurationProperties,
+    platformTransactionManager: PlatformTransactionManager
 ) {
+    private val transactionTemplate = TransactionTemplate(platformTransactionManager)
     private val logger = LoggerFactory.getLogger(NzbImportService::class.java)
 
     fun scheduleImport(nzbBytes: ByteArray, usenetDownload: UsenetDownload, nzbImportRecordId: Long) {
@@ -53,63 +56,109 @@ class NzbImportService(
         )
     }
 
-    @Transactional
     @Suppress("LongMethod", "ReturnCount")
     fun executeImport(taskData: NzbImportTaskData) {
-        val usenetDownload = usenetRepository.findById(taskData.usenetDownloadId).orElseThrow {
-            IllegalStateException("UsenetDownload not found: ${taskData.usenetDownloadId}")
-        }
-        val importRecord = nzbImportRepository.findById(taskData.nzbImportRecordId).orElseThrow {
-            IllegalStateException("NzbImportRecord not found: ${taskData.nzbImportRecordId}")
-        }
-        try {
+        // Phase 1: Load entities and mark as IMPORTING in a short transaction.
+        // We do NOT hold this transaction open during the long NNTP I/O below.
+        val downloadName = transactionTemplate.execute {
+            val usenetDownload = usenetRepository.findById(taskData.usenetDownloadId).orElse(null)
+                ?: run {
+                    logger.warn(
+                        "UsenetDownload ${taskData.usenetDownloadId} not found (may have been deleted), " +
+                                "skipping import"
+                    )
+                    return@execute null
+                }
+            val importRecord = nzbImportRepository.findById(taskData.nzbImportRecordId).orElseThrow {
+                IllegalStateException("NzbImportRecord not found: ${taskData.nzbImportRecordId}")
+            }
             logger.info("Importing ${usenetDownload.name}")
             importRecord.status = NzbImportStatus.IMPORTING
             nzbImportRepository.save(importRecord)
+            usenetDownload.name
+        } ?: return
 
-            val nzbBytes = Base64.getDecoder().decode(taskData.nzbBytesBase64)
-            val prepareResult = runBlocking { nzbStreamer.prepare(nzbBytes) }
+        // Phase 2: Perform long-running NNTP I/O outside any database transaction.
+        // This prevents the transaction from being held open while waiting for the
+        // network, which would cause ObjectOptimisticLockingFailureException if the
+        // UsenetDownload row is deleted by another thread during the I/O.
+        val nzbBytes = Base64.getDecoder().decode(taskData.nzbBytesBase64)
+        var prepareResult: PrepareResult? = null
+        var prepareException: Exception? = null
+        try {
+            prepareResult = runBlocking { nzbStreamer.prepare(nzbBytes) }
+        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+            logger.error("Failed to prepare NZB for download '$downloadName'", e)
+            prepareException = e
+        }
 
-            when (prepareResult) {
-                is PrepareResult.MissingArticles -> {
+        // Phase 3: Re-fetch entities and persist results in a new short transaction.
+        // Re-fetching avoids operating on stale/detached entities and gracefully handles
+        // the case where the UsenetDownload was deleted while the I/O was running.
+        transactionTemplate.execute {
+            val usenetDownload = usenetRepository.findById(taskData.usenetDownloadId).orElse(null)
+            val importRecord = nzbImportRepository.findById(taskData.nzbImportRecordId).orElseThrow {
+                IllegalStateException("NzbImportRecord not found: ${taskData.nzbImportRecordId}")
+            }
+
+            if (usenetDownload == null) {
+                logger.warn(
+                    "UsenetDownload ${taskData.usenetDownloadId} ('$downloadName') was deleted " +
+                            "during import; aborting result persistence"
+                )
+                importRecord.status = NzbImportStatus.FAILED
+                importRecord.errorMessage = "Download was deleted during import"
+                nzbImportRepository.save(importRecord)
+                return@execute
+            }
+
+            when {
+                prepareException != null -> {
+                    usenetDownload.status = UsenetDownloadStatus.FAILED
+                    importRecord.status = NzbImportStatus.FAILED
+                    importRecord.errorMessage = prepareException.stackTraceToString()
+                }
+
+                prepareResult is PrepareResult.MissingArticles -> {
+                    val result = prepareResult as PrepareResult.MissingArticles
                     logger.warn(
                         "Articles missing from Usenet for '{}': {}",
                         usenetDownload.name,
-                        prepareResult.message
+                        result.message
                     )
                     usenetDownload.status = UsenetDownloadStatus.ARTICLES_MISSING
                     importRecord.status = NzbImportStatus.ARTICLES_MISSING
-                    importRecord.errorMessage = prepareResult.message
-                    return
+                    importRecord.errorMessage = result.message
                 }
 
-                is PrepareResult.Failure -> {
+                prepareResult is PrepareResult.Failure -> {
+                    val result = prepareResult as PrepareResult.Failure
                     logger.error(
                         "NNTP failure importing '{}': {}",
                         usenetDownload.name,
-                        prepareResult.message,
-                        prepareResult.cause
+                        result.message,
+                        result.cause
                     )
                     usenetDownload.status = UsenetDownloadStatus.FAILED
                     importRecord.status = NzbImportStatus.FAILED
-                    importRecord.errorMessage = prepareResult.cause.stackTraceToString()
-                    return
+                    importRecord.errorMessage = result.cause.stackTraceToString()
                 }
 
-                is PrepareResult.UnsupportedArchive -> {
+                prepareResult is PrepareResult.UnsupportedArchive -> {
+                    val result = prepareResult as PrepareResult.UnsupportedArchive
                     logger.warn(
                         "Unsupported archive type for '{}': {}",
                         usenetDownload.name,
-                        prepareResult.message
+                        result.message
                     )
                     usenetDownload.status = UsenetDownloadStatus.FAILED
                     importRecord.status = NzbImportStatus.FAILED
-                    importRecord.errorMessage = prepareResult.message
-                    return
+                    importRecord.errorMessage = result.message
                 }
 
-                is PrepareResult.Success -> {
-                    val metadata = prepareResult.metadata
+                prepareResult is PrepareResult.Success -> {
+                    val result = prepareResult as PrepareResult.Success
+                    val metadata = result.metadata
                     val streamableFiles = nzbStreamer.resolveStreamableFiles(metadata)
                     val documentEntity = toDocumentEntity(metadata, streamableFiles)
                     documentEntity.category = usenetDownload.category?.name
@@ -148,13 +197,14 @@ class NzbImportService(
                     }
                     logger.info("Imported ${usenetDownload.name}")
                 }
+
+                else -> {
+                    usenetDownload.status = UsenetDownloadStatus.FAILED
+                    importRecord.status = NzbImportStatus.FAILED
+                    importRecord.errorMessage = "Unknown error during import prepare phase"
+                }
             }
-        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-            logger.error("Failed to import NZB for download '${usenetDownload.name}'", e)
-            usenetDownload.status = UsenetDownloadStatus.FAILED
-            importRecord.status = NzbImportStatus.FAILED
-            importRecord.errorMessage = e.stackTraceToString()
-        } finally {
+
             usenetRepository.save(usenetDownload)
             nzbImportRepository.save(importRecord)
         }

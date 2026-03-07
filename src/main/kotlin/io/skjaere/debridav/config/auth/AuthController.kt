@@ -14,6 +14,7 @@ class AuthController(
     private val jwtService: JwtService,
     private val debridavConfig: DebridavConfigurationProperties
 ) {
+    @Suppress("ReturnCount")
     @PostMapping("/login")
     fun login(@RequestBody request: LoginRequest): ResponseEntity<Any> {
         val expectedUsername = debridavConfig.webdavUsername

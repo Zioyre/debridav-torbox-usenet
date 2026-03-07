@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 class AuthConfigurationProperties {
     var enabled: Boolean = false
     var jwtSecret: String = ""
+    @Suppress("MagicNumber")
     var tokenExpirationHours: Long = 24
     var protectQbittorrentApi: Boolean = false
     var protectSabnzbdApi: Boolean = false

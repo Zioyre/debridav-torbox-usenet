@@ -79,6 +79,7 @@ class RadarrApiClient(
     override val configurationClass: KClass<*> = RadarrConfigurationProperties::class
     override val label: String = "Radarr"
 
+    @Suppress("TooGenericExceptionCaught")
     override suspend fun test(overrides: Map<String, String>): TestResult = try {
         val host = overrides["radarr.host"] ?: radarrConfigurationProperties.host
         val port = overrides["radarr.port"]?.toIntOrNull() ?: radarrConfigurationProperties.port

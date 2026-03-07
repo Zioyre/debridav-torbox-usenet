@@ -84,6 +84,7 @@ class SonarrApiClient(
     override val configurationClass: KClass<*> = SonarrConfigurationProperties::class
     override val label: String = "Sonarr"
 
+    @Suppress("TooGenericExceptionCaught")
     override suspend fun test(overrides: Map<String, String>): TestResult = try {
         val host = overrides["sonarr.host"] ?: sonarrConfigurationProperties.host
         val port = overrides["sonarr.port"]?.toIntOrNull() ?: sonarrConfigurationProperties.port

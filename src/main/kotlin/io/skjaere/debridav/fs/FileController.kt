@@ -14,6 +14,7 @@ class FileController(
     private val databaseFileService: DatabaseFileService,
     private val jwtService: JwtService
 ) {
+    @Suppress("ReturnCount")
     @GetMapping("/stream-url")
     fun streamUrl(@RequestParam path: String): ResponseEntity<StreamUrlDto> {
         val entity = databaseFileService.getFileAtPath(path)
@@ -32,6 +33,7 @@ class FileController(
         )
     }
 
+    @Suppress("ReturnCount")
     @GetMapping("/detail")
     fun detail(@RequestParam path: String): ResponseEntity<FileDetailDto> {
         val entity = databaseFileService.getFileAtPath(path)
@@ -42,57 +44,64 @@ class FileController(
         }
 
         val dto = when (entity) {
-            is RemotelyCachedEntity -> {
-                val contents = entity.contents
-                val fileType = when (contents) {
-                    is DebridCachedTorrentContent -> FileType.TORRENT
-                    is DebridCachedUsenetReleaseContent -> FileType.USENET_RELEASE
-                    is NzbContents -> FileType.NZB
-                    else -> FileType.LOCAL
-                }
-                val providerStatus = contents?.debridLinks?.mapNotNull { link ->
-                    val provider = link.provider ?: return@mapNotNull null
-                    val status = when (link) {
-                        is CachedFile -> ProviderCacheStatus.CACHED
-                        is MissingFile -> ProviderCacheStatus.MISSING
-                        is ProviderError -> ProviderCacheStatus.PROVIDER_ERROR
-                        is ClientError -> ProviderCacheStatus.CLIENT_ERROR
-                        is NetworkError -> ProviderCacheStatus.NETWORK_ERROR
-                        else -> ProviderCacheStatus.UNKNOWN_ERROR
-                    }
-                    ProviderStatusDto(
-                        provider = provider,
-                        status = status,
-                        lastChecked = link.lastChecked
-                    )
-                }
-                FileDetailDto(
-                    name = entity.name ?: "",
-                    path = path,
-                    size = entity.size,
-                    lastModified = entity.lastModified,
-                    mimeType = entity.mimeType,
-                    fileType = fileType,
-                    hash = entity.hash,
-                    providerStatus = providerStatus
-                )
-            }
-            is LocalEntity -> FileDetailDto(
-                name = entity.name ?: "",
-                path = path,
-                size = entity.size,
-                lastModified = entity.lastModified,
-                mimeType = entity.mimeType,
-                fileType = FileType.LOCAL,
-                hash = null,
-                providerStatus = null
-            )
+            is RemotelyCachedEntity -> buildRemoteDetail(entity, path)
+            is LocalEntity -> buildLocalDetail(entity, path)
             else -> return ResponseEntity.badRequest().build()
         }
 
         return ResponseEntity.ok(dto)
     }
 
+    private fun buildRemoteDetail(entity: RemotelyCachedEntity, path: String): FileDetailDto {
+        val contents = entity.contents
+        val fileType = when (contents) {
+            is DebridCachedTorrentContent -> FileType.TORRENT
+            is DebridCachedUsenetReleaseContent -> FileType.USENET_RELEASE
+            is NzbContents -> FileType.NZB
+            else -> FileType.LOCAL
+        }
+        val providerStatus = contents?.debridLinks?.mapNotNull { link ->
+            val provider = link.provider ?: return@mapNotNull null
+            val status = when (link) {
+                is CachedFile -> ProviderCacheStatus.CACHED
+                is MissingFile -> ProviderCacheStatus.MISSING
+                is ProviderError -> ProviderCacheStatus.PROVIDER_ERROR
+                is ClientError -> ProviderCacheStatus.CLIENT_ERROR
+                is NetworkError -> ProviderCacheStatus.NETWORK_ERROR
+                else -> ProviderCacheStatus.UNKNOWN_ERROR
+            }
+            ProviderStatusDto(
+                provider = provider,
+                status = status,
+                lastChecked = link.lastChecked
+            )
+        }
+        return FileDetailDto(
+            name = entity.name ?: "",
+            path = path,
+            size = entity.size,
+            lastModified = entity.lastModified,
+            mimeType = entity.mimeType,
+            fileType = fileType,
+            hash = entity.hash,
+            providerStatus = providerStatus
+        )
+    }
+
+    private fun buildLocalDetail(entity: LocalEntity, path: String): FileDetailDto {
+        return FileDetailDto(
+            name = entity.name ?: "",
+            path = path,
+            size = entity.size,
+            lastModified = entity.lastModified,
+            mimeType = entity.mimeType,
+            fileType = FileType.LOCAL,
+            hash = null,
+            providerStatus = null
+        )
+    }
+
+    @Suppress("ReturnCount")
     @GetMapping
     fun list(@RequestParam(defaultValue = "/") path: String): ResponseEntity<List<FileEntryDto>> {
         val entity = databaseFileService.getFileAtPath(path)

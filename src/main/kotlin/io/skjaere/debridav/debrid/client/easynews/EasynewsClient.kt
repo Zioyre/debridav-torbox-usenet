@@ -392,6 +392,7 @@ class EasynewsClient(
     override val configurationClass: KClass<*> = EasynewsConfigurationProperties::class
     override val label: String = "Easynews"
 
+    @Suppress("TooGenericExceptionCaught")
     override suspend fun test(overrides: Map<String, String>): TestResult = try {
         val apiBaseUrl = overrides["easynews.api-base-url"] ?: easynewsConfiguration.apiBaseUrl
         val username = overrides["easynews.username"] ?: easynewsConfiguration.username

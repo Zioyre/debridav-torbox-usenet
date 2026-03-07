@@ -23,13 +23,15 @@ import io.skjaere.debridav.debrid.client.StreamableLinkPreparable
 import io.skjaere.debridav.debrid.client.premiumize.model.CacheCheckResponse
 import io.skjaere.debridav.debrid.client.premiumize.model.SuccessfulDirectDownloadResponse
 import io.skjaere.debridav.fs.CachedFile
+import kotlin.reflect.KClass
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.Instant
-import kotlin.reflect.KClass
 
 @Serializable
 private data class PremiumizeAccountResponse(
@@ -104,8 +106,11 @@ class PremiumizeClient(
                     set(HttpHeaders.Accept, "application/json")
                 }
             }
-
-        if (resp.status != HttpStatusCode.OK) {
+        if (!resp.status.isSuccess()) {
+            throwDebridProviderException(resp, "/transfer/directdl")
+        }
+        val json: JsonObject = resp.body()
+        if (json["status"]?.jsonPrimitive?.content == "error") {
             throwDebridProviderException(resp, "/transfer/directdl")
         }
         return resp.body<SuccessfulDirectDownloadResponse>()
@@ -132,6 +137,7 @@ class PremiumizeClient(
     override val configurationClass: KClass<*> = PremiumizeConfigurationProperties::class
     override val label: String = "Premiumize"
 
+    @Suppress("TooGenericExceptionCaught")
     override suspend fun test(overrides: Map<String, String>): TestResult = try {
         val baseUrl = overrides["premiumize.base-url"] ?: premiumizeConfiguration.baseUrl
         val apiKey = overrides["premiumize.api-key"] ?: premiumizeConfiguration.apiKey

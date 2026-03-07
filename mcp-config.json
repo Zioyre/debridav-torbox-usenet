@@ -1,0 +1,13 @@
+{
+    "mcpServers": {
+        "jvm-debugger": {
+            "command": "java",
+            "args": [
+                "--add-modules",
+                "jdk.jdi",
+                "-jar",
+                "/opt/judi/judi.jar"
+            ]
+        }
+    }
+}

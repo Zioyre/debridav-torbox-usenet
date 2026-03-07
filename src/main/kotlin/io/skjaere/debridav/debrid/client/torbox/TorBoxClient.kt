@@ -250,6 +250,7 @@ class TorBoxClient(
     override val configurationClass: KClass<*> = TorBoxConfigurationProperties::class
     override val label: String = "TorBox"
 
+    @Suppress("TooGenericExceptionCaught")
     override suspend fun test(overrides: Map<String, String>): TestResult = try {
         val baseUrl = overrides["torbox.base-url"] ?: torBoxConfiguration.baseUrl
         val version = overrides["torbox.version"] ?: torBoxConfiguration.version

@@ -15,6 +15,7 @@ class JwtService(
         Keys.hmacShaKeyFor(authConfig.jwtSecret.toByteArray())
     }
 
+    @Suppress("MagicNumber")
     fun generateToken(username: String): String {
         val now = Date()
         val expiration = Date(now.time + authConfig.tokenExpirationHours * 3600 * 1000)
@@ -40,6 +41,7 @@ class JwtService(
         null
     }
 
+    @Suppress("MagicNumber")
     fun generateStreamToken(path: String): String {
         val now = Date()
         val expiration = Date(now.time + STREAM_TOKEN_EXPIRY_SECONDS * 1000)

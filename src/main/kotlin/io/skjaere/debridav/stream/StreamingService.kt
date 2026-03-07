@@ -24,6 +24,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.io.EOFException
 import org.apache.catalina.connector.ClientAbortException
 import org.slf4j.LoggerFactory
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.io.OutputStream
@@ -103,6 +104,8 @@ class StreamingService(
             StreamResult.CLIENT_ERROR
         } catch (_: ClientAbortException) {
             StreamResult.OK
+        } catch (_: AsyncRequestNotUsableException) {
+            StreamResult.OK
         } catch (e: kotlinx.io.IOException) {
             logger.error("IOError occurred during streaming", e)
             StreamResult.IO_ERROR
@@ -160,6 +163,10 @@ class StreamingService(
             } catch (e: CancellationException) {
                 throw e
             } catch (_: ClientAbortException) {
+            } catch (_: AsyncRequestNotUsableException) {
+            } catch (e: kotlinx.io.IOException) {
+                logger.warn("IO error reading from upstream HTTP stream during streaming", e)
+                throw ReadFromHttpStreamException("IO error reading from upstream HTTP stream", e)
             } catch (e: Exception) {
                 logger.error("An error occurred during streaming", e)
                 throw StreamToClientException("An error occurred during streaming", e)

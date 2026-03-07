@@ -103,6 +103,29 @@ class ConfigOverrideService(
         return getEffective(key)
     }
 
+    private fun refreshEnvironment() {
+        val propertySource = dbPropertySourceInitializer.getOrCreatePropertySource()
+        val overrides = repository.findAll().associate { it.propKey to (it.propValue ?: "") }
+        propertySource.replaceAll(overrides)
+        contextRefresher.refreshEnvironment()
+        logger.info("Refreshed environment with {} database override(s)", overrides.size)
+    }
+
+    @Suppress("ReturnCount")
+    private fun getDefaultValue(key: String): String? {
+        for (source in environment.propertySources) {
+            if (source.name == DatabasePropertySource.NAME) continue
+            if (source is EnumerablePropertySource<*>) {
+                val value = source.getProperty(key)
+                if (value != null) return value.toString()
+            } else {
+                val value = source.getProperty(key)
+                if (value != null) return value.toString()
+            }
+        }
+        return null
+    }
+
     fun getNntpPools(): List<NntpPoolDto> {
         val overrides = repository.findAllByPropKeyStartingWith(POOL_PREFIX)
         val pools = if (overrides.isEmpty()) {
@@ -116,6 +139,7 @@ class ConfigOverrideService(
     @Transactional
     fun saveNntpPools(pools: List<NntpPoolDto>) {
         repository.deleteAllByPropKeyStartingWith(POOL_PREFIX)
+        repository.flush()
         val now = Instant.now()
         pools.forEachIndexed { i, pool ->
             val entries = mapOf(
