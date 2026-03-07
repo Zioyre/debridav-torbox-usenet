@@ -165,6 +165,10 @@ class ConfigOverrideService(
         syncRunningPools(pools)
     }
 
+    fun syncRunningNntpPools() {
+        syncRunningPools(getNntpPools())
+    }
+
     private fun syncRunningPools(saved: List<NntpPoolDto>) {
         if (nzbStreamer == null) return
         val savedConfigs = saved.map { it.toNntpConfig() }.toSet()

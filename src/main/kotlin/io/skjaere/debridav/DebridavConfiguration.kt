@@ -3,7 +3,9 @@ package io.skjaere.debridav
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.api.createClientPlugin
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.timeout
 import io.ktor.serialization.kotlinx.json.json
 import io.milton.servlet.SpringMiltonFilter
 import io.skjaere.debridav.configuration.DebridavConfigurationProperties
@@ -44,9 +46,7 @@ class DebridavConfiguration {
 
     @Bean
     fun httpClient(debridavConfigurationProperties: DebridavConfigurationProperties): HttpClient = HttpClient(CIO) {
-        install(HttpTimeout) {
-            connectTimeoutMillis = debridavConfigurationProperties.connectTimeoutMilliseconds
-        }
+        install(HttpTimeout)
         install(ContentNegotiation) {
             json(
                 Json {
@@ -56,6 +56,15 @@ class DebridavConfiguration {
                 }
             )
         }
+        install(
+            createClientPlugin("DynamicConnectTimeout") {
+                onRequest { request, _ ->
+                    request.timeout {
+                        connectTimeoutMillis = debridavConfigurationProperties.connectTimeoutMilliseconds
+                    }
+                }
+            }
+        )
     }
 
     @Bean
