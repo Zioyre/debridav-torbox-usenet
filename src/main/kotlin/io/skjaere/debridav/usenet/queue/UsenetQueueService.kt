@@ -1,12 +1,14 @@
 package io.skjaere.debridav.usenet.queue
 
+import io.skjaere.debridav.repository.DebridFileContentsRepository
 import io.skjaere.debridav.repository.NzbImportRepository
-import org.springframework.data.domain.PageRequest
-import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 
 @Service
-class UsenetQueueService(private val nzbImportRepository: NzbImportRepository) {
+class UsenetQueueService(
+    private val nzbImportRepository: NzbImportRepository,
+    private val debridFileContentsRepository: DebridFileContentsRepository
+) {
 
     companion object {
         val PROCESSING_STATUSES = listOf(
@@ -57,15 +59,34 @@ class UsenetQueueService(private val nzbImportRepository: NzbImportRepository) {
         )
     }
 
-    private fun NzbImportRecord.toDto() = QueueItemDto(
-        id = id!!,
-        name = name,
-        status = status.name,
-        size = size,
-        errorMessage = errorMessage,
-        updatedAt = updatedAt,
-        createdAt = createdAt,
-        archiveType = archiveType,
-        files = files
-    )
+    @Suppress("ReturnCount")
+    fun resolveCurrentFilePaths(importId: Long): List<NzbImportFileJson>? {
+        val record = nzbImportRepository.findById(importId).orElse(null) ?: return null
+        val usenetDownloadId = record.usenetDownloadId ?: return record.files
+        val dbItems = debridFileContentsRepository.findByUsenetDownloadId(usenetDownloadId)
+        if (dbItems.isEmpty()) return record.files
+        val currentFiles = dbItems.mapNotNull { entity ->
+            val dirPath = entity.directory?.fileSystemPath() ?: return@mapNotNull null
+            val fileName = entity.name ?: return@mapNotNull null
+            NzbImportFileJson(
+                path = "$dirPath/$fileName",
+                size = entity.size ?: 0L
+            )
+        }
+        return currentFiles.ifEmpty { record.files }
+    }
+
+    private fun NzbImportRecord.toDto(): QueueItemDto {
+        return QueueItemDto(
+            id = id!!,
+            name = name,
+            status = status.name,
+            size = size,
+            errorMessage = errorMessage,
+            updatedAt = updatedAt,
+            createdAt = createdAt,
+            archiveType = archiveType,
+            files = files
+        )
+    }
 }

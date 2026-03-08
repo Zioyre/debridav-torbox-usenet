@@ -16,6 +16,7 @@ import org.hamcrest.Matchers.hasProperty
 import org.hamcrest.Matchers.hasSize
 import org.hamcrest.Matchers.`is`
 import org.hamcrest.Matchers.not
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -38,6 +39,13 @@ class WebDavOperationsIT {
     var randomServerPort: Int = 0
 
     private val sardine = SardineFactory.begin()
+
+    private var baselineEntityCount: Int = -1
+
+    @BeforeEach
+    fun captureBaseline() {
+        baselineEntityCount = debridFileContentsRepository.findAll().toList().size
+    }
 
     @Test
     fun thatCreatingFileInRootWorks() {
@@ -584,12 +592,11 @@ class WebDavOperationsIT {
     private fun assertReset() {
         debridFileContentsRepository.findAll()
             .toList().let {
-                if (it.size != 4) {
+                if (it.size != baselineEntityCount) {
                     it.forEach { logger.error("item found ${it.name}") }
                 }
-                assertThat(it, hasSize(4))
+                assertThat(it, hasSize(baselineEntityCount))
             }
-
     }
 
     private fun listDirectory(path: String): List<DavResource> =

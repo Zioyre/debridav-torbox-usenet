@@ -1,5 +1,6 @@
 package io.skjaere.debridav.test.integrationtest.config
 
+import io.skjaere.mocknntp.testcontainer.MockNntpServerContainer
 import org.apache.commons.io.FileUtils
 import org.mockserver.configuration.Configuration
 import org.mockserver.integration.ClientAndServer
@@ -11,12 +12,13 @@ import org.springframework.context.ApplicationListener
 import org.springframework.context.ConfigurableApplicationContext
 import org.springframework.context.event.ContextClosedEvent
 import org.springframework.test.util.TestSocketUtils
+import org.testcontainers.postgresql.PostgreSQLContainer
+import org.testcontainers.utility.DockerImageName
 import java.io.File
 
 class TestContextInitializer : ApplicationContextInitializer<ConfigurableApplicationContext> {
     companion object {
         const val BASE_PATH = "/tmp/debridavtests"
-
         val postgreSQLContainer: PostgreSQLContainer =
             PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine"))
                 .withUsername("postgres")
@@ -35,7 +37,7 @@ class TestContextInitializer : ApplicationContextInitializer<ConfigurableApplica
         val mockserverConfig = Configuration.configuration().logLevel(Level.ERROR)
         val mockServer: ClientAndServer = startClientAndServer(mockserverConfig, port)
         FileUtils.deleteDirectory(File(BASE_PATH))
-        applicationContext.beanFactory.registerSingleton("mockServer", mockServer)
+        (applicationContext as ConfigurableApplicationContext).beanFactory.registerSingleton("mockServer", mockServer)
         applicationContext.beanFactory.registerSingleton("mockNntpServerContainer", mockNntpServerContainer)
         applicationContext.addApplicationListener(
             ApplicationListener<ContextClosedEvent>() {
@@ -58,12 +60,12 @@ class TestContextInitializer : ApplicationContextInitializer<ConfigurableApplica
             "radarr.port=$port",
             "radarr.api-base-path=/radarr/api/v3",
             "mockserver.port=$port",
-            "spring.datasource.url=$dbUrl",
-            "spring.datasource.username=$dbUsername",
-            "spring.datasource.password=$dbPassword",
+            "spring.datasource.url=${postgreSQLContainer.jdbcUrl}",
+            "spring.datasource.username=postgres",
+            "spring.datasource.password=postgres",
             "easynews.api-base-url=http://localhost:$port/easynews",
-            "nntp.pools[0].host=$nntpHost",
-            "nntp.pools[0].port=$nntpPort",
+            "nntp.pools[0].host=${mockNntpServerContainer.nntpHost}",
+            "nntp.pools[0].port=${mockNntpServerContainer.nntpPort}",
             "nntp.pools[0].use-tls=false"
         ).applyTo(applicationContext)
     }

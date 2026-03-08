@@ -2,6 +2,7 @@ package io.skjaere.debridav.repository
 
 import io.skjaere.debridav.fs.DbDirectory
 import io.skjaere.debridav.fs.DbEntity
+import io.skjaere.debridav.fs.RemotelyCachedEntity
 import jakarta.transaction.Transactional
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -84,6 +85,14 @@ interface DebridFileContentsRepository : CrudRepository<DbEntity, Long> {
 
     @Query("select count(*) from DebridCachedUsenetReleaseContent ")
     fun numberOfRemotelyCachedUsenetEntities(): Long
+
+    @Query(
+        "select rce.* from db_item rce " +
+                "join usenet_download_debrid_files udf on udf.debrid_files_id = rce.id " +
+                "where udf.usenet_download_id = :usenetDownloadId",
+        nativeQuery = true
+    )
+    fun findByUsenetDownloadId(usenetDownloadId: Long): List<RemotelyCachedEntity>
 }
 
 data class LibraryStats(val provider: String, val type: String, val count: Long)
