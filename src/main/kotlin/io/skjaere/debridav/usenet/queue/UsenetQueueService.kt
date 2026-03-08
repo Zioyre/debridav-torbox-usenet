@@ -21,8 +21,7 @@ class UsenetQueueService(
 
         val HISTORY_STATUSES = listOf(
             NzbImportStatus.COMPLETED,
-            NzbImportStatus.FAILED,
-            NzbImportStatus.ARTICLES_MISSING
+            NzbImportStatus.FAILED
         )
 
         private val ALLOWED_SORT_FIELDS = setOf("updatedAt", "name")

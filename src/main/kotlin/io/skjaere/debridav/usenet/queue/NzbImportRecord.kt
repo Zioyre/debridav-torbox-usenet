@@ -68,8 +68,7 @@ enum class NzbImportStatus {
     QUEUED,
     IMPORTING,
     COMPLETED,
-    FAILED,
-    ARTICLES_MISSING
+    FAILED
 }
 
 data class NzbImportFileJson(

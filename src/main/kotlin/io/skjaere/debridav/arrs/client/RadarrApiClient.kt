@@ -36,9 +36,14 @@ class RadarrApiClient(
 
     override fun getCategory(): String = radarrConfigurationProperties.category
 
-    override suspend fun deleteFileAndSearch(name: String) {
+    override suspend fun deleteFileAndSearch(name: String): Boolean {
         val parseResponse = parse(name).body<RadarrParseResponse>()
         val movie = parseResponse.movie
+
+        if (movie.id == 0L) {
+            logger.warn("No movie found for '{}' in Radarr", name)
+            return false
+        }
 
         if (movie.movieFileId > 0) {
             logger.info("Deleting movie file {} for '{}'", movie.movieFileId, name)
@@ -74,6 +79,7 @@ class RadarrApiClient(
                 searchResponse.bodyAsText()
             )
         }
+        return true
     }
 
     override val configurationClass: KClass<*> = RadarrConfigurationProperties::class

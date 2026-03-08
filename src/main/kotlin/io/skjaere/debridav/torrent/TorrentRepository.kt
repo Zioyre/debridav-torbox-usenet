@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.CrudRepository
 import org.springframework.stereotype.Repository
+import java.time.Instant
 
 @Repository
 interface TorrentRepository : CrudRepository<Torrent, Long> {
@@ -20,4 +21,12 @@ interface TorrentRepository : CrudRepository<Torrent, Long> {
     fun markTorrentAsDeleted(torrent: Torrent)
 
     fun getTorrentByFilesContains(file: DbEntity): List<Torrent>
+
+    fun findByStatusAndLastVerifiedIsNullOrStatusAndLastVerifiedBefore(
+        status1: Status,
+        status2: Status,
+        cutoff: Instant
+    ): List<Torrent>
+
+    fun findByStatus(status: Status): List<Torrent>
 }

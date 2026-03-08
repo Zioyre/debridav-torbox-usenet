@@ -173,7 +173,7 @@ class NzbImportServiceTest {
     }
 
     @Test
-    fun `executeImport sets ARTICLES_MISSING on PrepareResult MissingArticles`() {
+    fun `executeImport sets FAILED on PrepareResult MissingArticles`() {
         // given
         val download = createUsenetDownload()
         val importRecord = createImportRecord()
@@ -195,8 +195,8 @@ class NzbImportServiceTest {
         underTest.executeImport(NzbImportTaskData(nzbBytesBase64, 1L, 100L))
 
         // then
-        assertEquals(UsenetDownloadStatus.ARTICLES_MISSING, savedSlot.captured.status)
-        assertEquals(NzbImportStatus.ARTICLES_MISSING, importSlot.captured.status)
+        assertEquals(UsenetDownloadStatus.FAILED, savedSlot.captured.status)
+        assertEquals(NzbImportStatus.FAILED, importSlot.captured.status)
         assertEquals("Article not found: 430", importSlot.captured.errorMessage)
         verify(exactly = 0) { nzbDocumentRepository.save(any()) }
     }
@@ -328,8 +328,8 @@ class NzbImportServiceTest {
         // then - nzbImportRepository.save is called: once for IMPORTING status (phase 1) + once in phase 3 = 2
         verify(exactly = 2) { nzbImportRepository.save(any<NzbImportRecord>()) }
         verify(exactly = 1) { usenetRepository.save(any<UsenetDownload>()) }
-        assertEquals(UsenetDownloadStatus.ARTICLES_MISSING, download.status)
-        assertEquals(NzbImportStatus.ARTICLES_MISSING, importRecord.status)
+        assertEquals(UsenetDownloadStatus.FAILED, download.status)
+        assertEquals(NzbImportStatus.FAILED, importRecord.status)
     }
 
     /**

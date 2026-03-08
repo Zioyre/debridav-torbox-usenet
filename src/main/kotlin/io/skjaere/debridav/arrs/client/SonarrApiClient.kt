@@ -36,12 +36,12 @@ class SonarrApiClient(
 
     override fun getCategory(): String = sonarrConfigurationProperties.category
 
-    override suspend fun deleteFileAndSearch(name: String) {
+    override suspend fun deleteFileAndSearch(name: String): Boolean {
         val parseResponse = parse(name).body<SonarrParseResponse>()
         val episodes = parseResponse.episodes
         if (episodes.isEmpty()) {
             logger.warn("No episodes found for '{}' in Sonarr", name)
-            return
+            return false
         }
 
         episodes.filter { it.episodeFileId > 0 }.forEach { episode ->
@@ -79,6 +79,7 @@ class SonarrApiClient(
                 searchResponse.bodyAsText()
             )
         }
+        return true
     }
 
     override val configurationClass: KClass<*> = SonarrConfigurationProperties::class

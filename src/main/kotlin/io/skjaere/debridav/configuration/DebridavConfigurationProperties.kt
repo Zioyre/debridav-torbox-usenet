@@ -70,6 +70,20 @@ class DebridavConfigurationProperties {
     @ConfigProperty(name = "Max Local Entity Size (MB)", description = "Max local entity size in MB", advanced = true)
     var localEntityMaxSizeMb: Int = 0
 
+    @ConfigProperty(
+        name = "Torrent Health Check Interval",
+        description = "How often to reverify torrent availability",
+        advanced = true
+    )
+    var torrentHealthCheckInterval: Duration = Duration.ofDays(1)
+
+    @ConfigProperty(
+        name = "Torrent Health Check Poll Rate",
+        description = "How often to poll for torrents needing health checks",
+        advanced = true
+    )
+    var torrentHealthCheckPollRate: Duration = Duration.ofMinutes(5)
+
     @ConfigProperty(name = "WebDAV Username", description = "WebDAV username", group = "webdav")
     var webdavUsername: String? = null
 

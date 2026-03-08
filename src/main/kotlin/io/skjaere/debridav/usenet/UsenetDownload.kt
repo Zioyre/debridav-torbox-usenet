@@ -44,9 +44,9 @@ open class UsenetDownload {
 
 enum class UsenetDownloadStatus {
     CREATED, QUEUED, DOWNLOADING, EXTRACTING, COMPLETED, FAILED, VERIFYING,
-    DELETED, CACHED, REPAIRING, POST_PROCESSING, VALIDATING, ARTICLES_MISSING;
+    DELETED, CACHED, REPAIRING, POST_PROCESSING, VALIDATING;
 
-    fun isCompleted(): Boolean = this == COMPLETED || this == CACHED || this == FAILED || this == ARTICLES_MISSING
+    fun isCompleted(): Boolean = this == COMPLETED || this == CACHED || this == FAILED
 }
 
 enum class SabnzbdUsenetDownloadStatus {
@@ -67,7 +67,6 @@ enum class SabnzbdUsenetDownloadStatus {
                 UsenetDownloadStatus.REPAIRING -> REPAIRING
                 UsenetDownloadStatus.VALIDATING -> VERIFYING
                 UsenetDownloadStatus.POST_PROCESSING -> VERIFYING
-                UsenetDownloadStatus.ARTICLES_MISSING -> FAILED
             }
     }
 

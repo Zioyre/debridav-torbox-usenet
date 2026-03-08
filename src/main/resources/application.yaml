@@ -35,7 +35,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,realdebrid,prometheus,nzbhealthcheck
+        include: health,realdebrid,prometheus,nzbhealthcheck,torrenthealthcheck
   endpoint:
     health:
       group:
@@ -62,6 +62,8 @@ debridav:
   local-entity-max-size-mb: 130
   default-categories:
   torrent-lifetime: 1d
+  torrent-health-check-interval: P1D
+  torrent-health-check-poll-rate: PT5M
   webdav-username:
   webdav-password:
   db:
@@ -75,6 +77,9 @@ debridav:
     protect-qbittorrent-api: false
     protect-sabnzbd-api: false
     protect-actuator: false
+
+repair:
+  enabled: true
 
 premiumize:
   api-key:
@@ -144,6 +149,12 @@ pgmq:
   health-repair-concurrency: 2
   health-repair-visibility-timeout: 2m
   health-repair-poll-interval: 5s
+  torrent-health-check-concurrency: 1
+  torrent-health-check-visibility-timeout: 5m
+  torrent-health-check-poll-interval: 10s
+  torrent-health-repair-concurrency: 2
+  torrent-health-repair-visibility-timeout: 2m
+  torrent-health-repair-poll-interval: 5s
 
 sentry:
   send-default-pii: false

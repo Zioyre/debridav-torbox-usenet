@@ -1,4 +1,4 @@
-package io.skjaere.debridav.usenet.pgmq
+package io.skjaere.debridav.pgmq
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.vdsirotkin.pgmq.PgmqClient
@@ -19,7 +19,7 @@ class PgmqConsumer<T : Any>(
     private val concurrency: Int,
     private val visibilityTimeout: java.time.Duration,
     private val pollInterval: java.time.Duration,
-    private val handler: (T) -> Unit
+    private val handler: (T, Long) -> Unit
 ) : SmartLifecycle {
 
     private val logger = LoggerFactory.getLogger(PgmqConsumer::class.java)
@@ -56,7 +56,7 @@ class PgmqConsumer<T : Any>(
                 val entry = entries.first()
                 try {
                     val message = objectMapper.readValue(entry.message, messageType)
-                    handler(message)
+                    handler(message, entry.messageId)
                     pgmqClient.archive(queueName, entry.messageId)
                 } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
                     logger.error(

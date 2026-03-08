@@ -126,8 +126,8 @@ class NzbImportService(
                         usenetDownload.name,
                         result.message
                     )
-                    usenetDownload.status = UsenetDownloadStatus.ARTICLES_MISSING
-                    importRecord.status = NzbImportStatus.ARTICLES_MISSING
+                    usenetDownload.status = UsenetDownloadStatus.FAILED
+                    importRecord.status = NzbImportStatus.FAILED
                     importRecord.errorMessage = result.message
                 }
 

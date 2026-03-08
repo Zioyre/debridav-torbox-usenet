@@ -37,6 +37,12 @@ open class Torrent {
     @Column(nullable = false, length = 2048)
     open var savePath: String? = null
     open var status: Status = Status.LIVE
+
+    @Column(name = "last_verified")
+    open var lastVerified: Instant? = null
+
+    @Column(name = "health_check_enqueued_at")
+    open var healthCheckEnqueuedAt: Instant? = null
 }
 
 enum class Status { LIVE, DELETED }
