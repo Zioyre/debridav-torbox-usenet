@@ -57,11 +57,26 @@ class RealDebridTorrentService(
 
     @Transactional
     fun syncTorrentListToDatabase(): Unit = runBlocking {
-        realDebridTorrentRepository.deleteAll()
-        getListOfTorrents().asSequence()
-            .map { mapTorrentInfoToRdtEntity(it) }
-            .toList()
-            .let { realDebridTorrentRepository.saveAll(it) }
+        val remoteTorrents = getListOfTorrents()
+        val remoteTorrentIds = remoteTorrents.map { it.id }.toSet()
+
+        // Remove locally-stored torrents that no longer exist on RD
+        realDebridTorrentRepository.findAll().forEach { local ->
+            if (local.torrentId !in remoteTorrentIds) {
+                realDebridTorrentRepository.delete(local)
+            }
+        }
+
+        // Upsert torrents from RD
+        remoteTorrents.forEach { info ->
+            val existing = realDebridTorrentRepository.getByTorrentIdIgnoreCase(info.id)
+            val entity = existing ?: RealDebridTorrentEntity()
+            entity.torrentId = info.id
+            entity.name = info.filename
+            entity.hash = info.hash
+            entity.links = info.links
+            realDebridTorrentRepository.save(entity)
+        }
     }
 
     private fun mapTorrentInfoToRdtEntity(info: TorrentsResponseItem): RealDebridTorrentEntity {

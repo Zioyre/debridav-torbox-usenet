@@ -9,7 +9,6 @@ import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.delete
 import io.ktor.client.request.forms.FormDataContent
 import io.ktor.client.request.get
-import io.ktor.client.request.head
 import io.ktor.client.request.headers
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -363,25 +362,18 @@ class RealDebridClient(
 
 
     override suspend fun getStreamableLink(key: TorrentMagnet, cachedFile: CachedFile): String? {
-        //return realDebridDownloadService.getDownloadByLink(cachedFile.params!![LINK_ID_MAP_KEY]!!)
         return realDebridDownloadService.getDownloadByHashAndFilenameAndSize(
             cachedFile.path!!,
             cachedFile.size!!,
             key.getHash()!!
         )?.let { realDebridDownload ->
-            if (isLinkAlive(realDebridDownload.download!!)) {
-                realDebridDownload.link
-            } else {
-                deleteDownload(realDebridDownload.downloadId!!)
-                realDebridDownloadService.deleteDownload(realDebridDownload)
-                null
-            }
+            realDebridDownload.download
         } ?: run {
             getFreshRealDebridLink(key, cachedFile.path!!, cachedFile.size!!)
                 ?.let {
                     val unrestrictResult = unrestrictLink(it)
                     when (unrestrictResult) {
-                        is SuccessfulUnrestrictLinkResponse -> unrestrictResult.realDebridDownloadEntity.link
+                        is SuccessfulUnrestrictLinkResponse -> unrestrictResult.realDebridDownloadEntity.download
                         else -> null
                     }
                 }
@@ -402,10 +394,6 @@ class RealDebridClient(
 
         }
         return x
-    }
-
-    private suspend fun isLinkAlive(link: String): Boolean {
-        return realDebridRateLimiter.executeSuspendFunction { httpClient.head(link).status.isSuccess() }
     }
 
     override val configurationClass: KClass<*> = RealDebridConfigurationProperties::class
