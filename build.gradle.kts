@@ -1,3 +1,4 @@
+import com.github.gradle.node.npm.task.NpmTask
 import com.google.cloud.tools.jib.gradle.JibTask
 import dev.detekt.gradle.Detekt
 import dev.detekt.gradle.DetektCreateBaselineTask
@@ -20,6 +21,7 @@ plugins {
     id("org.springframework.boot") version "4.0.3"
     id("com.google.cloud.tools.jib") version "3.5.3"
     id("io.github.simonhauck.release") version "1.5.1"
+    id("com.github.node-gradle.node") version "7.0.2"
 }
 
 application {
@@ -163,6 +165,67 @@ configurations {
 
 tasks.withType<JibTask>().configureEach {
     notCompatibleWithConfigurationCache("because https://github.com/GoogleContainerTools/jib/issues/3132")
+}
+
+// --- Frontend build ---
+// Builds the React frontend (debridav-frontend submodule) and bundles its
+// static output into the Spring Boot JAR under /static/, so the backend
+// serves the UI at /. Pin is tracked as a git submodule — run
+// `git submodule update --init` on a fresh clone (or
+// `actions/checkout@v4` with `submodules: true` in CI). Skipped if the
+// submodule isn't checked out or -PskipFrontend=true is passed.
+
+val frontendDir = file("debridav-frontend")
+val frontendStaticOutput = layout.buildDirectory.dir("generated/frontend/static")
+val skipFrontend = providers.gradleProperty("skipFrontend").map { it == "true" }.orElse(false)
+val hasFrontend = frontendDir.resolve("package.json").exists()
+
+node {
+    version.set("22.12.0")
+    download.set(true)
+    workDir.set(layout.buildDirectory.dir("nodejs"))
+    npmWorkDir.set(layout.buildDirectory.dir("npm"))
+    nodeProjectDir.set(frontendDir)
+}
+
+tasks.npmInstall {
+    onlyIf { !skipFrontend.get() && hasFrontend }
+}
+
+val frontendBuild by tasks.registering(NpmTask::class) {
+    description = "Build frontend static assets"
+    group = "frontend"
+    onlyIf { !skipFrontend.get() && hasFrontend }
+    dependsOn(tasks.npmInstall)
+    args.set(listOf("run", "build"))
+    inputs.dir(frontendDir.resolve("src")).optional()
+    inputs.dir(frontendDir.resolve("public")).optional()
+    inputs.files(
+        frontendDir.resolve("package.json"),
+        frontendDir.resolve("vite.config.ts"),
+        frontendDir.resolve("tsconfig.json"),
+        frontendDir.resolve("tsconfig.app.json"),
+        frontendDir.resolve("tsconfig.node.json"),
+        frontendDir.resolve("index.html"),
+    ).optional()
+    outputs.dir(frontendDir.resolve("dist"))
+}
+
+val copyFrontend by tasks.registering(Copy::class) {
+    description = "Copy built frontend into resources"
+    group = "frontend"
+    onlyIf { !skipFrontend.get() && hasFrontend }
+    dependsOn(frontendBuild)
+    from(frontendDir.resolve("dist"))
+    into(frontendStaticOutput)
+}
+
+sourceSets.main {
+    resources.srcDir(layout.buildDirectory.dir("generated/frontend"))
+}
+
+tasks.processResources {
+    dependsOn(copyFrontend)
 }
 
 jib {
