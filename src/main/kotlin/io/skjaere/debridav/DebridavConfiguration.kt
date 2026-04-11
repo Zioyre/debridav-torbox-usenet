@@ -27,8 +27,7 @@ class DebridavConfiguration {
     fun miltonFilterFilterRegistrationBean(): FilterRegistrationBean<SpringMiltonFilter> {
         val registration = FilterRegistrationBean(SpringMiltonFilter())
         registration.setName("MiltonFilter")
-        registration.addUrlPatterns("/*")
-        registration.addInitParameter("milton.exclude.paths", "/files,/api,/version,/sabnzbd,/actuator")
+        registration.addUrlPatterns("/webdav/*")
         registration.addInitParameter(
             "resource.factory.class", "io.skjaere.debrid.resource.StreamableResourceFactory"
         )

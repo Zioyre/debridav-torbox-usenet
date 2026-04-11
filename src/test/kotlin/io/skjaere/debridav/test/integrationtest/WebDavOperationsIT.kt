@@ -50,7 +50,7 @@ class WebDavOperationsIT {
     @Test
     fun thatCreatingFileInRootWorks() {
         //when
-        sardine.put("http://localhost:${randomServerPort}/testfile.txt", "test contents".byteInputStream())
+        sardine.put("http://localhost:${randomServerPort}/webdav/testfile.txt", "test contents".byteInputStream())
 
         //then
         val listOfFiles: List<DavResource> = listDirectory("/")
@@ -70,7 +70,7 @@ class WebDavOperationsIT {
     @Test
     fun thatDeletingFileInRootWorks() {
         //given
-        sardine.put("http://localhost:${randomServerPort}/testfile.txt", "test contents".byteInputStream())
+        sardine.put("http://localhost:${randomServerPort}/webdav/testfile.txt", "test contents".byteInputStream())
         val listOfFiles: List<DavResource> = listDirectory("/")
         assertThat(
             listOfFiles, hasItem<DavResource>(
@@ -99,7 +99,7 @@ class WebDavOperationsIT {
     @Test
     fun thatCreatingDirectoryInRootWorks() {
         //when
-        sardine.createDirectory("http://localhost:${randomServerPort}/testDirectory")
+        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/testDirectory")
         val listOfFiles: List<DavResource> = listDirectory("/")
 
         //then
@@ -119,7 +119,7 @@ class WebDavOperationsIT {
     @Test
     fun thatRenamingEmptyDirectoryInRootWorks() {
         //given
-        sardine.createDirectory("http://localhost:${randomServerPort}/testDirectory")
+        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/testDirectory")
         assertThat(
             listDirectory("/"), hasItem<DavResource>(
                 hasProperty(
@@ -130,8 +130,8 @@ class WebDavOperationsIT {
 
         //when
         sardine.move(
-            "http://localhost:${randomServerPort}/testDirectory",
-            "http://localhost:${randomServerPort}/movedTestDirectory"
+            "http://localhost:${randomServerPort}/webdav/testDirectory",
+            "http://localhost:${randomServerPort}/webdav/movedTestDirectory"
         )
 
         //then
@@ -151,9 +151,9 @@ class WebDavOperationsIT {
     @Test
     fun thatRenamingPopulatedDirectoryInRootWorks() {
         //given
-        sardine.createDirectory("http://localhost:${randomServerPort}/testDirectory")
+        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/testDirectory")
         sardine.put(
-            "http://localhost:${randomServerPort}/testDirectory/testfile.txt",
+            "http://localhost:${randomServerPort}/webdav/testDirectory/testfile.txt",
             "test contents".byteInputStream()
         )
         assertThat(
@@ -173,8 +173,8 @@ class WebDavOperationsIT {
 
         //when
         sardine.move(
-            "http://localhost:${randomServerPort}/testDirectory",
-            "http://localhost:${randomServerPort}/movedTestDirectory"
+            "http://localhost:${randomServerPort}/webdav/testDirectory",
+            "http://localhost:${randomServerPort}/webdav/movedTestDirectory"
         )
 
         //then
@@ -201,8 +201,8 @@ class WebDavOperationsIT {
     @Test
     fun thatRenamingEmptyDirectoryInBranchWorks() {
         //given
-        sardine.createDirectory("http://localhost:${randomServerPort}/testDirectory")
-        sardine.createDirectory("http://localhost:${randomServerPort}/testDirectory/nestedDirectory")
+        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/testDirectory")
+        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/testDirectory/nestedDirectory")
         assertThat(
             listDirectory("/"), hasItem<DavResource>(
                 hasProperty(
@@ -220,8 +220,8 @@ class WebDavOperationsIT {
 
         //when
         sardine.move(
-            "http://localhost:${randomServerPort}/testDirectory/nestedDirectory",
-            "http://localhost:${randomServerPort}/testDirectory/renamedNestedDirectory"
+            "http://localhost:${randomServerPort}/webdav/testDirectory/nestedDirectory",
+            "http://localhost:${randomServerPort}/webdav/testDirectory/renamedNestedDirectory"
         )
 
         //then
@@ -241,10 +241,10 @@ class WebDavOperationsIT {
     @Test
     fun thatRenamingPopulatedDirectoryInBranchWorks() {
         //given
-        sardine.createDirectory("http://localhost:${randomServerPort}/testDirectory/")
-        sardine.createDirectory("http://localhost:${randomServerPort}/testDirectory/nestedDirectory")
+        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/testDirectory/")
+        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/testDirectory/nestedDirectory")
         sardine.put(
-            "http://localhost:${randomServerPort}/testDirectory/nestedDirectory/testfile.txt",
+            "http://localhost:${randomServerPort}/webdav/testDirectory/nestedDirectory/testfile.txt",
             "test contents".byteInputStream()
         )
         assertThat(
@@ -264,8 +264,8 @@ class WebDavOperationsIT {
 
         //when
         sardine.move(
-            "http://localhost:${randomServerPort}/testDirectory/nestedDirectory",
-            "http://localhost:${randomServerPort}/testDirectory/renamedNestedDirectory"
+            "http://localhost:${randomServerPort}/webdav/testDirectory/nestedDirectory",
+            "http://localhost:${randomServerPort}/webdav/testDirectory/renamedNestedDirectory"
         )
 
         //then
@@ -285,9 +285,9 @@ class WebDavOperationsIT {
     @Test
     fun thatMovingDirectoryToNestedDirectoryWorks() {
         //given
-        sardine.createDirectory("http://localhost:${randomServerPort}/testDirectory")
-        sardine.createDirectory("http://localhost:${randomServerPort}/testDirectory/nestedTestDirectory")
-        sardine.createDirectory("http://localhost:${randomServerPort}/directoryToBeMoved")
+        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/testDirectory")
+        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/testDirectory/nestedTestDirectory")
+        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/directoryToBeMoved")
         assertThat(
             listDirectory("/"), allOf(
                 hasItem<DavResource>(
@@ -312,8 +312,8 @@ class WebDavOperationsIT {
 
         //when
         sardine.move(
-            "http://localhost:${randomServerPort}/directoryToBeMoved",
-            "http://localhost:${randomServerPort}/testDirectory/nestedTestDirectory/directoryToBeMoved"
+            "http://localhost:${randomServerPort}/webdav/directoryToBeMoved",
+            "http://localhost:${randomServerPort}/webdav/testDirectory/nestedTestDirectory/directoryToBeMoved"
         )
 
         //then
@@ -343,10 +343,10 @@ class WebDavOperationsIT {
     @Test
     fun thatMovingDirectoryWithFilesWorks() {
         //given
-        sardine.createDirectory("http://localhost:${randomServerPort}/testDirectory")
-        sardine.createDirectory("http://localhost:${randomServerPort}/destinationDirectory")
+        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/testDirectory")
+        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/destinationDirectory")
         sardine.put(
-            "http://localhost:${randomServerPort}/testDirectory/testfile.txt",
+            "http://localhost:${randomServerPort}/webdav/testDirectory/testfile.txt",
             "test contents".byteInputStream()
         )
         assertThat(
@@ -373,8 +373,8 @@ class WebDavOperationsIT {
 
         //when
         sardine.move(
-            "http://localhost:${randomServerPort}/testDirectory",
-            "http://localhost:${randomServerPort}/destinationDirectory/testDirectory"
+            "http://localhost:${randomServerPort}/webdav/testDirectory",
+            "http://localhost:${randomServerPort}/webdav/destinationDirectory/testDirectory"
         )
 
         //then
@@ -404,9 +404,9 @@ class WebDavOperationsIT {
     @Test
     fun thatMovingDirectoryWithSubdirectoriesWorks() {
         //given
-        sardine.createDirectory("http://localhost:${randomServerPort}/testDirectory")
-        sardine.createDirectory("http://localhost:${randomServerPort}/testDirectory/subDirectory")
-        sardine.createDirectory("http://localhost:${randomServerPort}/destinationDirectory")
+        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/testDirectory")
+        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/testDirectory/subDirectory")
+        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/destinationDirectory")
 
         assertThat(
             listDirectory("/"), allOf(
@@ -425,8 +425,8 @@ class WebDavOperationsIT {
 
         //when
         sardine.move(
-            "http://localhost:${randomServerPort}/testDirectory",
-            "http://localhost:${randomServerPort}/destinationDirectory/testDirectory"
+            "http://localhost:${randomServerPort}/webdav/testDirectory",
+            "http://localhost:${randomServerPort}/webdav/destinationDirectory/testDirectory"
         )
 
         //then
@@ -463,16 +463,16 @@ class WebDavOperationsIT {
     @Test
     fun thatMovingLocalEntityWorks() {
         //given
-        sardine.createDirectory("http://localhost:${randomServerPort}/testDirectory")
+        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/testDirectory")
         sardine.put(
-            "http://localhost:${randomServerPort}/testfile.txt",
+            "http://localhost:${randomServerPort}/webdav/testfile.txt",
             "test contents".byteInputStream()
         )
 
         //when
         sardine.move(
-            "http://localhost:${randomServerPort}/testfile.txt",
-            "http://localhost:${randomServerPort}/testDirectory/testfile.txt",
+            "http://localhost:${randomServerPort}/webdav/testfile.txt",
+            "http://localhost:${randomServerPort}/webdav/testDirectory/testfile.txt",
         )
 
         // then
@@ -490,9 +490,9 @@ class WebDavOperationsIT {
     @Test
     fun thatDeletingDirectoryBranchWorks() {
         //given
-        sardine.createDirectory("http://localhost:${randomServerPort}/testDirectory")
-        sardine.createDirectory("http://localhost:${randomServerPort}/testDirectory/subDirectory")
-        sardine.createDirectory("http://localhost:${randomServerPort}/testDirectory/subDirectory/secondSubDirectory")
+        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/testDirectory")
+        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/testDirectory/subDirectory")
+        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/testDirectory/subDirectory/secondSubDirectory")
 
         assertThat(
             listDirectory("/"), allOf(
@@ -523,7 +523,7 @@ class WebDavOperationsIT {
         )
 
         //when
-        sardine.delete("http://localhost:${randomServerPort}/testDirectory")
+        sardine.delete("http://localhost:${randomServerPort}/webdav/testDirectory")
 
         //then
         assertThat(
@@ -542,13 +542,13 @@ class WebDavOperationsIT {
     fun thatReadingLocalEntityWorks() {
         // given
         sardine.put(
-            "http://localhost:${randomServerPort}/testDirectory/testfile.txt",
+            "http://localhost:${randomServerPort}/webdav/testDirectory/testfile.txt",
             "test contents".byteInputStream()
         )
 
         // when
         val response = sardine.get(
-            "http://localhost:${randomServerPort}/testDirectory/testfile.txt"
+            "http://localhost:${randomServerPort}/webdav/testDirectory/testfile.txt"
         ).readAllBytes().decodeToString()
 
         assertThat(response, `is`("test contents"))
@@ -560,13 +560,13 @@ class WebDavOperationsIT {
     fun thatReadingLocalEntityWithRangeWorks() {
         // given
         sardine.put(
-            "http://localhost:${randomServerPort}/testDirectory/testfile.txt",
+            "http://localhost:${randomServerPort}/webdav/testDirectory/testfile.txt",
             "test contents".byteInputStream()
         )
 
         // when
         val response = sardine.get(
-            "http://localhost:${randomServerPort}/testDirectory/testfile.txt",
+            "http://localhost:${randomServerPort}/webdav/testDirectory/testfile.txt",
             mapOf(
                 "Range" to "bytes=0-0",
             )
@@ -583,7 +583,7 @@ class WebDavOperationsIT {
         val contents = IntRange(0, (1024 * 1024 * 2)).map { Byte.MIN_VALUE }.toByteArray()
         assertFailsWith<SardineException> {
             sardine.put(
-                "http://localhost:${randomServerPort}/testfile.txt",
+                "http://localhost:${randomServerPort}/webdav/testfile.txt",
                 contents.inputStream()
             )
         }
@@ -600,8 +600,8 @@ class WebDavOperationsIT {
     }
 
     private fun listDirectory(path: String): List<DavResource> =
-        sardine.list("http://localhost:${randomServerPort}/$path")
+        sardine.list("http://localhost:${randomServerPort}/webdav/${path.trimStart('/')}")
 
     private fun deleteFile(path: String) =
-        sardine.delete("http://localhost:${randomServerPort}/$path")
+        sardine.delete("http://localhost:${randomServerPort}/webdav/${path.trimStart('/')}")
 }
