@@ -90,5 +90,11 @@ class DebridavConfigurationProperties {
     @ConfigProperty(name = "WebDAV Password", description = "WebDAV password", sensitive = true, group = "webdav")
     var webdavPassword: String? = null
 
+    @ConfigProperty(
+        name = "Rclone Cache Invalidation",
+        description = "Notify rclone to refresh its directory cache on file create / move / delete"
+    )
+    var rcloneCacheInvalidationEnabled: Boolean = false
+
     fun isWebdavAuthEnabled(): Boolean = !webdavUsername.isNullOrBlank() && !webdavPassword.isNullOrBlank()
 }

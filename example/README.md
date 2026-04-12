@@ -96,6 +96,18 @@ sudo apparmor_parser -R /etc/apparmor.d/fusermount3
 
 Or edit `/etc/apparmor.d/fusermount3` and change the `-> @{HOME}/**/` rule to `-> /**/`, then `sudo apparmor_parser -r /etc/apparmor.d/fusermount3`.
 
+## Rclone cache invalidation (optional)
+
+Rclone's directory cache can lag behind real filesystem state — newly imported files won't show up to the *arrs until the cache expires (see `--dir-cache-time` in the rclone command). To close this gap, debridav can call rclone's RC `/vfs/refresh` endpoint whenever a file is created, moved, or deleted.
+
+The compose stack wires this up by default but leaves it **off** in debridav:
+
+1. Rclone is already started with `--rc --rc-addr :5572 --rc-user/--rc-pass` (auth from `RCLONE_RC_USER` / `RCLONE_RC_PASSWORD` in `.env`).
+2. Debridav already receives the URL and credentials via `DEBRIDAV_RCLONE_RC-URL` / `_RC-USER` / `_RC-PASSWORD`.
+3. To activate: open the UI's **Configuration → Core** page, flip **Rclone Cache Invalidation** to on, save. No restart needed.
+
+Events are coalesced over a 500 ms window — bursts (e.g. an NZB import touching many files) produce one HTTP call per affected directory, not N calls per file.
+
 ## Security scope
 
 This compose stack assumes you're running it on a private network. debridav's

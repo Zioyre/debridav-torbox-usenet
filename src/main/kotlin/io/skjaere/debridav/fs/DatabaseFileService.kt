@@ -2,6 +2,7 @@ package io.skjaere.debridav.fs
 
 import io.ipfs.multibase.Base58
 import io.skjaere.debridav.configuration.DebridavConfigurationProperties
+import io.skjaere.debridav.rclone.FileSystemChangedEvent
 import io.skjaere.debridav.repository.DebridFileContentsRepository
 import io.skjaere.debridav.repository.UsenetRepository
 import io.skjaere.debridav.torrent.TorrentRepository
@@ -16,6 +17,7 @@ import kotlinx.coroutines.withContext
 import org.apache.commons.lang3.Strings
 import org.hibernate.engine.jdbc.proxy.BlobProxy
 import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.io.InputStream
@@ -31,6 +33,7 @@ class DatabaseFileService(
     private val torrentRepository: TorrentRepository,
     private val usenetRepository: UsenetRepository,
     private val entityManager: EntityManager,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
     private val logger = LoggerFactory.getLogger(DatabaseFileService::class.java)
     private val lock = Mutex()
@@ -71,6 +74,7 @@ class DatabaseFileService(
         fileEntity.hash = hash
 
         logger.debug("Creating ${directory.path}/${fileEntity.name}")
+        emitChange(parentOf(path))
         fileEntity
     }
 
@@ -117,6 +121,7 @@ class DatabaseFileService(
             is RemotelyCachedEntity -> moveFile(destination, dbItem, name)
             is LocalEntity -> moveFile(destination, dbItem, name)
             is DbDirectory -> {
+                val oldParent = parentOfDirectory(dbItem)
                 dbItem.name = name
                 debridFileRepository.save(dbItem)
                 if (directoriesHaveSameParent(dbItem.fileSystemPath()!!, destination)) {
@@ -129,6 +134,7 @@ class DatabaseFileService(
 
                     )
                 }
+                emitChanges(setOfNotNull(oldParent, destination))
             }
         }
     }
@@ -138,14 +144,20 @@ class DatabaseFileService(
         destination: String, dbFile: DbEntity, name: String
     ) {
         if (dbFile is DbDirectory) error("entity is directory")
+        val oldParent = dbFile.directory?.fileSystemPath()
         val destinationDirectory = getOrCreateDirectory(destination)
         dbFile.directory = destinationDirectory
         dbFile.name = name
         debridFileRepository.save(dbFile)
+        emitChanges(setOfNotNull(oldParent, destination))
     }
 
     @Transactional
     fun deleteFile(file: DbEntity) {
+        val parent = when (file) {
+            is DbDirectory -> parentOfDirectory(file)
+            else -> file.directory?.fileSystemPath()
+        }
         when (file) {
             is RemotelyCachedEntity -> deleteRemotelyCachedEntity(file)
             is DbDirectory -> debridFileRepository.delete(file)
@@ -154,6 +166,7 @@ class DatabaseFileService(
                 debridFileRepository.delete(file)
             }
         }
+        parent?.let { emitChange(it) }
     }
 
     private fun deleteLargeObjectForLocalEntity(file: LocalEntity) {
@@ -239,7 +252,9 @@ class DatabaseFileService(
         localFile.directory = directory
         localFile.lastModified = System.currentTimeMillis()
 
-        return debridFileRepository.save(localFile)
+        val saved = debridFileRepository.save(localFile)
+        emitChange(parentOf(path))
+        return saved
     }
 
 
@@ -314,5 +329,20 @@ class DatabaseFileService(
 
     private fun directoriesHaveSameParent(first: String, second: String): Boolean {
         return first.getDirectoryFromPath() == second
+    }
+
+    private fun parentOf(filePath: String): String = filePath.getDirectoryFromPath()
+
+    private fun parentOfDirectory(dir: DbDirectory): String? =
+        dir.fileSystemPath()?.getDirectoryFromPath()
+
+    private fun emitChange(path: String) {
+        eventPublisher.publishEvent(FileSystemChangedEvent(setOf(path)))
+    }
+
+    private fun emitChanges(paths: Set<String>) {
+        if (paths.isNotEmpty()) {
+            eventPublisher.publishEvent(FileSystemChangedEvent(paths))
+        }
     }
 }

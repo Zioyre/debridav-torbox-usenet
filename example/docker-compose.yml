@@ -35,6 +35,10 @@ services:
       RADARR_HOST: ${RADARR_HOST:-}
       RADARR_PORT: ${RADARR_PORT:-7878}
       RADARR_APIKEY: ${RADARR_API_KEY:-}
+      # rclone RC (how debridav reaches rclone to invalidate its VFS cache)
+      DEBRIDAV_RCLONE_RC-URL: http://rclone:5572
+      DEBRIDAV_RCLONE_RC-USER: ${RCLONE_RC_USER:-debridav}
+      DEBRIDAV_RCLONE_RC-PASSWORD: ${RCLONE_RC_PASSWORD:-debridav}
     volumes:
       - debridav-data:/data/debridav
     ports:
@@ -89,6 +93,8 @@ services:
       PGID: ${PGID:-1000}
       WEBDAV_USER: ${DEBRIDAV_WEBDAV_USERNAME}
       WEBDAV_PASS_PLAIN: ${DEBRIDAV_WEBDAV_PASSWORD}
+      RCLONE_RC_USER_VAL: ${RCLONE_RC_USER:-debridav}
+      RCLONE_RC_PASS_VAL: ${RCLONE_RC_PASSWORD:-debridav}
     volumes:
       - ${RCLONE_MOUNT_PATH:-$HOME/debridav}:/home/debridav/data:rshared
     cap_add:
@@ -121,7 +127,8 @@ services:
           --vfs-cache-mode off \
           --dir-cache-time 1s \
           --low-level-retries 1 \
-          --rc-enable-metrics \
+          --rc --rc-addr :5572 \
+          --rc-user "$$RCLONE_RC_USER_VAL" --rc-pass "$$RCLONE_RC_PASS_VAL" \
           --metrics-addr :9002 \
           -vv
     ports:
