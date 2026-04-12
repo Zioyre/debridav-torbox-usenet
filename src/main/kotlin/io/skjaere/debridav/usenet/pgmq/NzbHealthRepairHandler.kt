@@ -9,12 +9,10 @@ import io.skjaere.debridav.repository.NzbDocumentRepository
 import io.skjaere.debridav.repository.UsenetRepository
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-@ConditionalOnProperty("nntp.enabled", havingValue = "true")
 class NzbHealthRepairHandler(
     private val nzbDocumentRepository: NzbDocumentRepository,
     private val usenetRepository: UsenetRepository,

@@ -22,6 +22,7 @@ class ConfigOverrideService(
     companion object {
         private const val MASKED = "***"
         private const val POOL_PREFIX = "nntp.pools["
+        private const val POOLS_MANAGED_KEY = "nntp.pools._managed"
     }
 
     fun listAll(): List<ConfigOverrideDto> {
@@ -128,19 +129,35 @@ class ConfigOverrideService(
 
     fun getNntpPools(): List<NntpPoolDto> {
         val overrides = repository.findAllByPropKeyStartingWith(POOL_PREFIX)
-        val pools = if (overrides.isEmpty()) {
-            nntpConfig.pools.map { it.toDto() }
-        } else {
-            parsePoolOverrides(overrides)
+        if (overrides.isNotEmpty()) {
+            return parsePoolOverrides(overrides).sortedBy { it.priority }
         }
-        return pools.sortedBy { it.priority }
+        // No pool rows in the DB. Distinguish "user has explicitly emptied the
+        // list" from "first boot, never configured via UI": a managed-marker
+        // row is written by saveNntpPools on every save, so its presence means
+        // we should honor the empty state and not fall back to env defaults.
+        val managed = repository.findByPropKey(POOLS_MANAGED_KEY) != null
+        return if (managed) {
+            emptyList()
+        } else {
+            nntpConfig.pools.map { it.toDto() }.sortedBy { it.priority }
+        }
     }
 
     @Transactional
     fun saveNntpPools(pools: List<NntpPoolDto>) {
         repository.deleteAllByPropKeyStartingWith(POOL_PREFIX)
-        repository.flush()
         val now = Instant.now()
+        if (repository.findByPropKey(POOLS_MANAGED_KEY) == null) {
+            repository.save(ConfigOverride().apply {
+                propKey = POOLS_MANAGED_KEY
+                propValue = "true"
+                sensitive = false
+                createdAt = now
+                updatedAt = now
+            })
+        }
+        repository.flush()
         pools.forEachIndexed { i, pool ->
             val entries = mapOf(
                 "nntp.pools[$i].host" to pool.host,

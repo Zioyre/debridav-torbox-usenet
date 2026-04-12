@@ -6,12 +6,10 @@ import io.skjaere.debridav.pgmq.PgmqConfigurationProperties
 import io.skjaere.debridav.pgmq.PgmqConsumer
 import io.skjaere.debridav.usenet.NzbImportService
 import io.skjaere.debridav.usenet.NzbImportTaskData
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-@ConditionalOnProperty("nntp.enabled", havingValue = "true")
 class PgmqSpringConfiguration {
 
     @Bean

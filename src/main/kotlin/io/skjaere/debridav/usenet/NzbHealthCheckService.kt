@@ -4,7 +4,6 @@ import com.vdsirotkin.pgmq.PgmqClient
 import io.skjaere.debridav.repository.NzbDocumentRepository
 import io.skjaere.debridav.usenet.pgmq.NzbHealthCheckMessage
 import org.slf4j.LoggerFactory
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -12,7 +11,6 @@ import java.time.Clock
 import java.time.Instant
 
 @Service
-@ConditionalOnProperty("nntp.enabled", havingValue = "true")
 class NzbHealthCheckService(
     private val nzbDocumentRepository: NzbDocumentRepository,
     private val nntpConfigurationProperties: NntpConfigurationProperties,

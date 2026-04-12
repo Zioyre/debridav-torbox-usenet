@@ -6,7 +6,6 @@ import io.skjaere.nzbstreamer.config.NntpConfig
 import io.skjaere.nzbstreamer.config.SeekConfig
 import io.skjaere.nzbstreamer.config.StreamingConfig
 import org.slf4j.LoggerFactory
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -25,8 +24,6 @@ data class NntpPoolProperties(
 @Suppress("MagicNumber")
 @ConfigurationProperties(prefix = "nntp")
 class NntpConfigurationProperties {
-    @ConfigProperty(name = "Enabled", description = "Enable NNTP")
-    val enabled: Boolean = false,
     @ConfigProperty(name = "Concurrency", description = "NNTP streaming concurrency")
     val concurrency: Int = 4,
     val readAheadSegments: Int? = null,
@@ -44,7 +41,6 @@ class NzbStreamerConfiguration {
     private val logger = LoggerFactory.getLogger(NzbStreamerConfiguration::class.java)
 
     @Bean
-    @ConditionalOnProperty("nntp.enabled", havingValue = "true")
     fun nzbStreamer(props: NntpConfigurationProperties): NzbStreamer {
         val nntpConfigs = buildNntpConfigs(props)
         val streamingConfig = StreamingConfig(

@@ -23,7 +23,6 @@ import io.skjaere.nzbstreamer.metadata.PrepareResult
 import io.skjaere.nzbstreamer.stream.StreamableFile
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
@@ -31,7 +30,6 @@ import java.time.Instant
 import java.util.*
 
 @Service
-@ConditionalOnProperty("nntp.enabled", havingValue = "true")
 class NzbImportService(
     private val nzbStreamer: NzbStreamer,
     private val nzbDocumentRepository: NzbDocumentRepository,
