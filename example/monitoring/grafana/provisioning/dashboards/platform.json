@@ -91,35 +91,7 @@
           },
           "unit": "binBps"
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Active NNTP streams"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "short"
-              },
-              {
-                "id": "custom.axisPlacement",
-                "value": "right"
-              },
-              {
-                "id": "custom.axisLabel",
-                "value": "streams"
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#bd93f9"
-                }
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 11,
@@ -157,9 +129,9 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "editorMode": "code",
-          "expr": "nzb_streams_active",
-          "legendFormat": "Active NNTP streams",
+          "editorMode": "builder",
+          "expr": "nzb_streams_bitrate",
+          "legendFormat": "NNTP::{{name}}",
           "range": true,
           "refId": "B"
         }

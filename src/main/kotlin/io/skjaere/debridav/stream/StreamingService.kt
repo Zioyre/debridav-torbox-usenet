@@ -4,9 +4,10 @@ import io.ktor.client.call.body
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.readAvailable
 import io.milton.http.Range
-import io.prometheus.metrics.core.metrics.Gauge
-import io.prometheus.metrics.core.metrics.Histogram
-import io.prometheus.metrics.model.registry.PrometheusRegistry
+import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.MultiGauge
+import io.micrometer.core.instrument.Tags
+import io.micrometer.core.instrument.Timer
 import io.skjaere.debridav.debrid.client.DebridCachedContentClient
 import io.skjaere.debridav.fs.CachedFile
 import io.skjaere.debridav.fs.RemotelyCachedEntity
@@ -41,20 +42,13 @@ private const val STREAMING_METRICS_POLLING_RATE_S = 5L //5 seconds
 @Service
 class StreamingService(
     private val debridClients: List<DebridCachedContentClient>,
-    prometheusRegistry: PrometheusRegistry
+    private val meterRegistry: MeterRegistry,
 ) {
     private val logger = LoggerFactory.getLogger(StreamingService::class.java)
-    private val outputGauge =
-        Gauge.builder().name("debridav.output.stream.bitrate").labelNames("file", "client")
-            .register(prometheusRegistry)
-    private val inputGauge = Gauge
-        .builder()
-        .name("debridav.input.stream.bitrate")
-        .labelNames("provider", "file", "client")
-        .register(prometheusRegistry)
-    private val timeToFirstByteHistogram =
-        Histogram.builder().help("Time duration between sending request and receiving first byte")
-            .name("debridav.streaming.time.to.first.byte").labelNames("provider", "client").register(prometheusRegistry)
+    private val outputGauge = MultiGauge.builder("debridav.output.stream.bitrate")
+        .register(meterRegistry)
+    private val inputGauge = MultiGauge.builder("debridav.input.stream.bitrate")
+        .register(meterRegistry)
     private val activeOutputStream = ConcurrentLinkedQueue<OutputStreamingContext>()
     private val activeInputStreams = ConcurrentLinkedQueue<InputStreamingContext>()
 
@@ -81,8 +75,12 @@ class StreamingService(
                 sendBytesFromHttpStream(debridLink, appliedRange, outputStream) { bytes ->
                     if (!ttfbRecorded) {
                         ttfbRecorded = true
-                        timeToFirstByteHistogram.labelValues(debridLink.provider.toString(), client)
-                            .observe(Duration.between(started, Instant.now()).toMillis().toDouble())
+                        Timer.builder("debridav.streaming.time.to.first.byte")
+                            .description("Time duration between sending request and receiving first byte")
+                            .tag("provider", debridLink.provider.toString())
+                            .tag("client", client)
+                            .register(meterRegistry)
+                            .record(Duration.between(started, Instant.now()))
                     }
                     inputCounter.add(bytes.toLong())
                     outputCounter.add(bytes.toLong())
@@ -122,13 +120,13 @@ class StreamingService(
     }
 
 
-    fun ConcurrentLinkedQueue<OutputStreamingContext>.removeStream(ctx: OutputStreamingContext) {
-        outputGauge.remove(ctx.file, ctx.client)
+    // MultiGauge row removal happens in recordMetrics() via overwrite=true,
+    // so these helpers just update the backing queues.
+    private fun ConcurrentLinkedQueue<OutputStreamingContext>.removeStream(ctx: OutputStreamingContext) {
         this.remove(ctx)
     }
 
-    fun ConcurrentLinkedQueue<InputStreamingContext>.removeStream(ctx: InputStreamingContext) {
-        inputGauge.remove(ctx.provider.toString(), ctx.file, ctx.client)
+    private fun ConcurrentLinkedQueue<InputStreamingContext>.removeStream(ctx: InputStreamingContext) {
         if (this.contains(ctx)) {
             this.remove(ctx)
         } else {
@@ -205,13 +203,29 @@ class StreamingService(
 
     @Scheduled(fixedRate = STREAMING_METRICS_POLLING_RATE_S, timeUnit = TimeUnit.SECONDS)
     fun recordMetrics() {
-        activeOutputStream.forEach {
-            outputGauge.labelValues(it.file, it.client)
-                .set(it.counter.countAndReset().toDouble().div(STREAMING_METRICS_POLLING_RATE_S))
-        }
-        activeInputStreams.forEach {
-            inputGauge.labelValues(it.provider.toString(), it.file, it.client)
-                .set(it.counter.countAndReset().toDouble().div(STREAMING_METRICS_POLLING_RATE_S))
-        }
+        // overwrite=true drops rows for streams no longer in the queue so
+        // gauges for ended streams disappear from scrape output.
+        outputGauge.register(
+            activeOutputStream.map { ctx ->
+                MultiGauge.Row.of(
+                    Tags.of("file", ctx.file, "client", ctx.client),
+                    ctx.counter.countAndReset().toDouble().div(STREAMING_METRICS_POLLING_RATE_S),
+                )
+            },
+            true,
+        )
+        inputGauge.register(
+            activeInputStreams.map { ctx ->
+                MultiGauge.Row.of(
+                    Tags.of(
+                        "provider", ctx.provider.toString(),
+                        "file", ctx.file,
+                        "client", ctx.client,
+                    ),
+                    ctx.counter.countAndReset().toDouble().div(STREAMING_METRICS_POLLING_RATE_S),
+                )
+            },
+            true,
+        )
     }
 }

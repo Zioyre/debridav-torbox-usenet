@@ -3,6 +3,7 @@ package io.skjaere.debridav.config.auth
 import io.jsonwebtoken.JwtException
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.util.Date
 import javax.crypto.SecretKey
@@ -11,8 +12,18 @@ import javax.crypto.SecretKey
 class JwtService(
     private val authConfig: AuthConfigurationProperties
 ) {
+    private val logger = LoggerFactory.getLogger(JwtService::class.java)
+
     private val key: SecretKey by lazy {
-        Keys.hmacShaKeyFor(authConfig.jwtSecret.toByteArray())
+        if (authConfig.jwtSecret.isBlank()) {
+            logger.warn(
+                "DEBRIDAV_AUTH_JWT-SECRET is not set; generating a random key for this session. " +
+                        "Tokens will be invalidated on restart — set a stable secret if that matters."
+            )
+            Jwts.SIG.HS256.key().build()
+        } else {
+            Keys.hmacShaKeyFor(authConfig.jwtSecret.toByteArray())
+        }
     }
 
     @Suppress("MagicNumber")

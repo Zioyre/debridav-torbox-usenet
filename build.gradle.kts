@@ -163,6 +163,12 @@ configurations {
     }
 }
 
+// Emit META-INF/build-info.properties so the running JVM can report its
+// own version via Spring's BuildProperties bean.
+springBoot {
+    buildInfo()
+}
+
 tasks.withType<JibTask>().configureEach {
     notCompatibleWithConfigurationCache("because https://github.com/GoogleContainerTools/jib/issues/3132")
 }
@@ -188,11 +194,22 @@ node {
     nodeProjectDir.set(frontendDir)
 }
 
+// Cache-incompat reason shared across the frontend pipeline below. The
+// node-gradle plugin (npmInstall, NpmTask) captures Project references at
+// execution time, and our own onlyIf closures here also reference script
+// state (`skipFrontend`, `hasFrontend`), which isn't serializable. Rather
+// than fight it, mark each task as incompatible — matches the approach
+// already taken for Jib higher up in this file.
+val frontendCcReason =
+    "captures script/project references (node-gradle plugin + onlyIf closures)"
+
 tasks.npmInstall {
+    notCompatibleWithConfigurationCache(frontendCcReason)
     onlyIf { !skipFrontend.get() && hasFrontend }
 }
 
 val frontendBuild by tasks.registering(NpmTask::class) {
+    notCompatibleWithConfigurationCache(frontendCcReason)
     description = "Build frontend static assets"
     group = "frontend"
     onlyIf { !skipFrontend.get() && hasFrontend }
@@ -212,6 +229,7 @@ val frontendBuild by tasks.registering(NpmTask::class) {
 }
 
 val copyFrontend by tasks.registering(Copy::class) {
+    notCompatibleWithConfigurationCache(frontendCcReason)
     description = "Copy built frontend into resources"
     group = "frontend"
     onlyIf { !skipFrontend.get() && hasFrontend }

@@ -1,5 +1,6 @@
 package io.skjaere.debridav.ui
 
+import org.springframework.boot.info.BuildProperties
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/v1/ui-config")
 class UiConfigController(
     private val uiConfig: UiConfigurationProperties,
+    private val buildProperties: BuildProperties? = null,
 ) {
     @GetMapping
     fun getUiConfig(): ResponseEntity<UiConfigDto> {
@@ -20,10 +22,15 @@ class UiConfigController(
                     dashboards = cfg.dashboards.map { DashboardDto(it.label, it.path) },
                 )
             }
-        return ResponseEntity.ok(UiConfigDto(grafana = grafana))
+        return ResponseEntity.ok(
+            UiConfigDto(
+                grafana = grafana,
+                version = buildProperties?.version,
+            )
+        )
     }
 }
 
-data class UiConfigDto(val grafana: GrafanaDto?)
+data class UiConfigDto(val grafana: GrafanaDto?, val version: String?)
 data class GrafanaDto(val baseUrl: String, val dashboards: List<DashboardDto>)
 data class DashboardDto(val label: String, val path: String)
