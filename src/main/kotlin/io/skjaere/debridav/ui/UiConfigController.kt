@@ -1,5 +1,6 @@
 package io.skjaere.debridav.ui
 
+import kotlinx.coroutines.runBlocking
 import org.springframework.boot.info.BuildProperties
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -27,8 +28,8 @@ class UiConfigController(
     }
 
     @GetMapping("/grafana/dashboards")
-    suspend fun getGrafanaDashboards(): ResponseEntity<List<DashboardDto>> =
-        ResponseEntity.ok(grafanaDashboardService.listDashboards())
+    fun getGrafanaDashboards(): ResponseEntity<List<DashboardDto>> =
+        ResponseEntity.ok(runBlocking { grafanaDashboardService.listDashboards() })
 }
 
 data class UiConfigDto(val grafana: GrafanaDto?, val version: String?)
