@@ -9,10 +9,5 @@ class UiConfigurationProperties {
 
 class GrafanaConfig {
     var baseUrl: String = ""
-    var dashboards: MutableList<GrafanaDashboard> = mutableListOf()
-}
-
-class GrafanaDashboard {
-    var label: String = ""
-    var path: String = ""
+    var apiKey: String = ""
 }

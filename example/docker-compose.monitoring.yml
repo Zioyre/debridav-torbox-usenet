@@ -1,17 +1,13 @@
 services:
   # Extend the base debridav service with Grafana config so the UI's
-  # Dashboard tab can embed the dashboards from this stack.
+  # Dashboard tab can embed dashboards from this stack. The dashboard
+  # list is discovered dynamically from Grafana's `debridav` folder —
+  # no manual per-dashboard wiring needed.
   debridav:
     environment:
-      #DEBRIDAV_UI_GRAFANA_BASEURL: ${UI_GRAFANA_BASEURL:-http://localhost:3000}
-      DEBRIDAV_UI_GRAFANA_DASHBOARDS_0_LABEL: Platform
-      DEBRIDAV_UI_GRAFANA_DASHBOARDS_0_PATH: /d/f6415a14-af35-4d81-8efb-9a018b0e3ed3/debridav-platform
-      DEBRIDAV_UI_GRAFANA_DASHBOARDS_1_LABEL: Rclone
-      DEBRIDAV_UI_GRAFANA_DASHBOARDS_1_PATH: /d/rclone-mounts-dashboard/rclone-mounts
-      DEBRIDAV_UI_GRAFANA_DASHBOARDS_2_LABEL: NNTP
-      DEBRIDAV_UI_GRAFANA_DASHBOARDS_2_PATH: /d/nntp-pool-dashboard/nntp-connection-pool
-      DEBRIDAV_UI_GRAFANA_DASHBOARDS_3_LABEL: Sonarr & Radarr
-      DEBRIDAV_UI_GRAFANA_DASHBOARDS_3_PATH: /d/scraparr-dashboard/sonarr-radarr
+      DEBRIDAV_UI_GRAFANA_BASEURL: ${UI_GRAFANA_BASEURL:-http://localhost:3000}
+      # Optional: only needed if Grafana requires auth for /api/search
+      #DEBRIDAV_UI_GRAFANA_APIKEY: ${UI_GRAFANA_APIKEY}
 
   prometheus:
     image: prom/prometheus:v2.54.1

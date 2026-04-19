@@ -7,21 +7,17 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("/api/v1/ui-config")
+@RequestMapping("/api/v1")
 class UiConfigController(
     private val uiConfig: UiConfigurationProperties,
+    private val grafanaDashboardService: GrafanaDashboardService,
     private val buildProperties: BuildProperties? = null,
 ) {
-    @GetMapping
+    @GetMapping("/ui-config")
     fun getUiConfig(): ResponseEntity<UiConfigDto> {
         val grafana = uiConfig.grafana
             .takeIf { it.baseUrl.isNotBlank() }
-            ?.let { cfg ->
-                GrafanaDto(
-                    baseUrl = cfg.baseUrl.trimEnd('/'),
-                    dashboards = cfg.dashboards.map { DashboardDto(it.label, it.path) },
-                )
-            }
+            ?.let { cfg -> GrafanaDto(baseUrl = cfg.baseUrl.trimEnd('/')) }
         return ResponseEntity.ok(
             UiConfigDto(
                 grafana = grafana,
@@ -29,8 +25,12 @@ class UiConfigController(
             )
         )
     }
+
+    @GetMapping("/grafana/dashboards")
+    suspend fun getGrafanaDashboards(): ResponseEntity<List<DashboardDto>> =
+        ResponseEntity.ok(grafanaDashboardService.listDashboards())
 }
 
 data class UiConfigDto(val grafana: GrafanaDto?, val version: String?)
-data class GrafanaDto(val baseUrl: String, val dashboards: List<DashboardDto>)
+data class GrafanaDto(val baseUrl: String)
 data class DashboardDto(val label: String, val path: String)
