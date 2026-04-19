@@ -55,12 +55,6 @@ class PremiumizeClient(
     ) {
     private val logger = LoggerFactory.getLogger(DebridClient::class.java)
 
-    init {
-        require(premiumizeConfiguration.apiKey.isNotEmpty()) {
-            "Missing API key for Premiumize"
-        }
-    }
-
     @Suppress("TooGenericExceptionCaught")
     override suspend fun isCached(magnet: TorrentMagnet): Boolean {
         val resp = httpClient

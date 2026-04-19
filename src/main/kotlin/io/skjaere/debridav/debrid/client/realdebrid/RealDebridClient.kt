@@ -12,13 +12,13 @@ import io.ktor.client.request.get
 import io.ktor.client.request.headers
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
-import io.ktor.client.statement.bodyAsText
 import io.skjaere.debridav.config.ConfigurationTester
 import io.skjaere.debridav.config.TestResult
 import io.skjaere.debridav.configuration.DebridavConfigurationProperties
@@ -41,6 +41,7 @@ import io.skjaere.debridav.debrid.client.realdebrid.support.RealDebridDownloadSe
 import io.skjaere.debridav.debrid.client.realdebrid.support.RealDebridTorrentService
 import io.skjaere.debridav.fs.CachedFile
 import io.skjaere.debridav.torrent.TorrentService
+import kotlin.reflect.KClass
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -53,7 +54,6 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
-import kotlin.reflect.KClass
 
 private const val CREATED = 204
 private const val NOT_FOUND = 404
@@ -64,7 +64,7 @@ private const val TORRENT_ID_MAP_KEY = "torrentId"
 @Suppress("TooManyFunctions")
 class RealDebridClient(
     private val realDebridConfigurationProperties: RealDebridConfigurationProperties,
-    debridavConfigurationProperties: DebridavConfigurationProperties,
+    private val debridavConfigurationProperties: DebridavConfigurationProperties,
     override val httpClient: HttpClient,
     private val realDebridTorrentService: RealDebridTorrentService,
     private val realDebridDownloadService: RealDebridDownloadService,
@@ -79,16 +79,15 @@ class RealDebridClient(
 
     var torrentImportEnabled = realDebridConfigurationProperties.syncEnabled
 
-    init {
-        require(realDebridConfigurationProperties.apiKey.isNotEmpty()) {
-            "Missing API key for Real Debrid"
-        }
-    }
+    private fun isRealDebridConfigured(): Boolean =
+        DebridProvider.REAL_DEBRID in debridavConfigurationProperties.debridClients &&
+            realDebridConfigurationProperties.apiKey.isNotBlank()
 
     @Scheduled(
         initialDelay = 0, fixedRateString = "\${real-debrid.sync-poll-rate}"
     )
     fun syncTorrentsTask() {
+        if (!isRealDebridConfigured()) return
         if (torrentImportEnabled) {
             runBlocking {
                 launch {
