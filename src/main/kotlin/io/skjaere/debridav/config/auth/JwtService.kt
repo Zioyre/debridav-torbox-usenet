@@ -3,16 +3,30 @@ package io.skjaere.debridav.config.auth
 import io.jsonwebtoken.JwtException
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
+import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.util.Date
 import javax.crypto.SecretKey
+
+private const val MIN_HS256_KEY_BYTES = 32
 
 @Service
 class JwtService(
     private val authConfig: AuthConfigurationProperties
 ) {
     private val logger = LoggerFactory.getLogger(JwtService::class.java)
+
+    @PostConstruct
+    fun validateSecret() {
+        val secret = authConfig.jwtSecret
+        if (secret.isNotBlank() && secret.toByteArray().size < MIN_HS256_KEY_BYTES) {
+            error(
+                "DEBRIDAV_AUTH_JWT_SECRET must be at least $MIN_HS256_KEY_BYTES bytes for HS256 " +
+                    "(got ${secret.toByteArray().size}). Generate one with: openssl rand -base64 48"
+            )
+        }
+    }
 
     private val key: SecretKey by lazy {
         if (authConfig.jwtSecret.isBlank()) {
