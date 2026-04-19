@@ -17,6 +17,7 @@ class PgmqConfigurationProperties {
     var healthRepairVisibilityTimeout: Duration = Duration.ofMinutes(2)
     var healthRepairPollInterval: Duration = Duration.ofSeconds(5)
     var archiveRetention: Duration = Duration.ofDays(30)
+    var maxReadCount: Long = 5
     var torrentHealthCheckConcurrency: Int = 1
     var torrentHealthCheckVisibilityTimeout: Duration = Duration.ofMinutes(5)
     var torrentHealthCheckPollInterval: Duration = Duration.ofSeconds(10)

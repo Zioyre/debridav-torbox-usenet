@@ -25,7 +25,8 @@ class PgmqSpringConfiguration {
         messageType = NzbImportMessage::class.java,
         concurrency = props.importConcurrency,
         visibilityTimeout = props.importVisibilityTimeout,
-        pollInterval = props.importPollInterval
+        pollInterval = props.importPollInterval,
+        maxReadCount = props.maxReadCount
     ) { msg, _ ->
         nzbImportService.executeImport(
             NzbImportTaskData(msg.nzbBytesBase64, msg.usenetDownloadId, msg.nzbImportRecordId)
@@ -45,7 +46,8 @@ class PgmqSpringConfiguration {
         messageType = NzbHealthCheckMessage::class.java,
         concurrency = props.healthCheckConcurrency,
         visibilityTimeout = props.healthCheckVisibilityTimeout,
-        pollInterval = props.healthCheckPollInterval
+        pollInterval = props.healthCheckPollInterval,
+        maxReadCount = props.maxReadCount
     ) { msg, _ ->
         healthCheckHandler.handle(msg)
     }
@@ -63,7 +65,8 @@ class PgmqSpringConfiguration {
         messageType = NzbHealthRepairMessage::class.java,
         concurrency = props.healthRepairConcurrency,
         visibilityTimeout = props.healthRepairVisibilityTimeout,
-        pollInterval = props.healthRepairPollInterval
+        pollInterval = props.healthRepairPollInterval,
+        maxReadCount = props.maxReadCount
     ) { msg, msgId ->
         healthRepairHandler.handle(msg, msgId)
     }

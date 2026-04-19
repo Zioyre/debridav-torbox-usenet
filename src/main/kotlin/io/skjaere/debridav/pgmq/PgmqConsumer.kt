@@ -1,16 +1,19 @@
 package io.skjaere.debridav.pgmq
 
+import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.vdsirotkin.pgmq.PgmqClient
+import com.vdsirotkin.pgmq.domain.PgmqEntry
 import kotlin.time.Duration
 import kotlin.time.toKotlinDuration
 import org.slf4j.LoggerFactory
 import org.springframework.context.SmartLifecycle
+import java.time.Instant
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-@Suppress("MagicNumber")
+@Suppress("MagicNumber", "LongParameterList")
 class PgmqConsumer<T : Any>(
     private val pgmqClient: PgmqClient,
     private val objectMapper: ObjectMapper,
@@ -19,8 +22,10 @@ class PgmqConsumer<T : Any>(
     private val concurrency: Int,
     private val visibilityTimeout: java.time.Duration,
     private val pollInterval: java.time.Duration,
+    private val maxReadCount: Long = DEFAULT_MAX_READ_COUNT,
     private val handler: (T, Long) -> Unit
 ) : SmartLifecycle {
+    private val deadLetterQueue = "${queueName}_dlq"
 
     private val logger = LoggerFactory.getLogger(PgmqConsumer::class.java)
 
@@ -58,11 +63,26 @@ class PgmqConsumer<T : Any>(
                     val message = objectMapper.readValue(entry.message, messageType)
                     handler(message, entry.messageId)
                     pgmqClient.archive(queueName, entry.messageId)
-                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                } catch (e: JsonProcessingException) {
                     logger.error(
-                        "Error processing message {} from queue '{}': {}",
-                        entry.messageId, queueName, e.message, e
+                        "Malformed message {} on queue '{}'; dead-lettering (retry can't help)",
+                        entry.messageId, queueName, e
                     )
+                    deadLetter(entry, e)
+                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                    val attempt = entry.readCounter
+                    if (attempt >= maxReadCount) {
+                        logger.error(
+                            "Message {} on queue '{}' exhausted {} attempts; dead-lettering",
+                            entry.messageId, queueName, attempt, e
+                        )
+                        deadLetter(entry, e)
+                    } else {
+                        logger.error(
+                            "Message {} on queue '{}' failed attempt {}/{}; will retry after visibility timeout",
+                            entry.messageId, queueName, attempt, maxReadCount, e
+                        )
+                    }
                 }
             } catch (_: InterruptedException) {
                 Thread.currentThread().interrupt()
@@ -95,4 +115,30 @@ class PgmqConsumer<T : Any>(
     override fun isRunning(): Boolean = running
 
     override fun getPhase(): Int = Int.MAX_VALUE - 1
+
+    private fun deadLetter(entry: PgmqEntry, cause: Throwable) {
+        val envelope = mapOf(
+            "originalQueue" to queueName,
+            "originalMessageId" to entry.messageId,
+            "originalPayload" to entry.message,
+            "enqueuedAt" to entry.enqueuedAt.toString(),
+            "readCount" to entry.readCounter,
+            "failureClass" to cause.javaClass.name,
+            "failureMessage" to cause.message,
+            "failedAt" to Instant.now().toString()
+        )
+        try {
+            pgmqClient.send(deadLetterQueue, envelope)
+            pgmqClient.archive(queueName, entry.messageId)
+        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+            logger.error(
+                "Failed to dead-letter message {} to queue '{}'; leaving visible for manual inspection",
+                entry.messageId, deadLetterQueue, e
+            )
+        }
+    }
+
+    companion object {
+        const val DEFAULT_MAX_READ_COUNT: Long = 5
+    }
 }

@@ -23,7 +23,8 @@ class TorrentPgmqConfiguration {
         messageType = TorrentHealthCheckMessage::class.java,
         concurrency = props.torrentHealthCheckConcurrency,
         visibilityTimeout = props.torrentHealthCheckVisibilityTimeout,
-        pollInterval = props.torrentHealthCheckPollInterval
+        pollInterval = props.torrentHealthCheckPollInterval,
+        maxReadCount = props.maxReadCount
     ) { msg, _ ->
         handler.handle(msg)
     }
@@ -41,7 +42,8 @@ class TorrentPgmqConfiguration {
         messageType = TorrentHealthRepairMessage::class.java,
         concurrency = props.torrentHealthRepairConcurrency,
         visibilityTimeout = props.torrentHealthRepairVisibilityTimeout,
-        pollInterval = props.torrentHealthRepairPollInterval
+        pollInterval = props.torrentHealthRepairPollInterval,
+        maxReadCount = props.maxReadCount
     ) { msg, msgId ->
         handler.handle(msg, msgId)
     }
