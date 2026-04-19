@@ -65,9 +65,9 @@ class ConfigApiIT {
             .expectBody()
             .jsonPath("$").isArray
             .jsonPath("$.length()").isNotEmpty
-            .jsonPath("$[?(@.key == 'debridav.root-path')]").exists()
-            .jsonPath("$[?(@.key == 'debridav.root-path')].name").isEqualTo("Root Path")
-            .jsonPath("$[?(@.key == 'debridav.root-path')].type").isEqualTo("STRING")
+            .jsonPath("$[?(@.key == 'debridav.download-path')]").exists()
+            .jsonPath("$[?(@.key == 'debridav.download-path')].name").isEqualTo("Download Path")
+            .jsonPath("$[?(@.key == 'debridav.download-path')].type").isEqualTo("STRING")
             .jsonPath("$[?(@.key == 'debridav.should-delete-non-working-files')].type").isEqualTo("BOOLEAN")
             .jsonPath("$[?(@.key == 'debridav.torrent-lifetime')].type").isEqualTo("DURATION")
             .jsonPath("$[?(@.key == 'spring.datasource.url')]").doesNotExist()
@@ -76,12 +76,12 @@ class ConfigApiIT {
     @Test
     fun `get single config property`() {
         webTestClient.get()
-            .uri("/api/v1/config/debridav.root-path")
+            .uri("/api/v1/config/debridav.download-path")
             .exchange()
             .expectStatus().isOk
             .expectBody()
-            .jsonPath("$.key").isEqualTo("debridav.root-path")
-            .jsonPath("$.name").isEqualTo("Root Path")
+            .jsonPath("$.key").isEqualTo("debridav.download-path")
+            .jsonPath("$.name").isEqualTo("Download Path")
             .jsonPath("$.hasOverride").isEqualTo(false)
             .jsonPath("$.group").isEqualTo("debridav")
             .jsonPath("$.type").isEqualTo("STRING")
@@ -159,7 +159,7 @@ class ConfigApiIT {
     @Test
     fun `delete non-existent override returns 404`() {
         webTestClient.delete()
-            .uri("/api/v1/config/debridav.root-path")
+            .uri("/api/v1/config/debridav.download-path")
             .exchange()
             .expectStatus().isNotFound
     }

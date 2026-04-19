@@ -2,8 +2,8 @@ package io.skjaere.debridav.usenet.pgmq
 
 import io.skjaere.debridav.arrs.ArrService
 import io.skjaere.debridav.fs.DatabaseFileService
+import io.skjaere.debridav.health.HealthCheckConfigurationProperties
 import io.skjaere.debridav.health.RepairAction
-import io.skjaere.debridav.health.RepairConfigurationProperties
 import io.skjaere.debridav.health.RepairOutcomeService
 import io.skjaere.debridav.repository.NzbDocumentRepository
 import io.skjaere.debridav.repository.UsenetRepository
@@ -18,14 +18,14 @@ class NzbHealthRepairHandler(
     private val usenetRepository: UsenetRepository,
     private val arrService: ArrService,
     private val fileService: DatabaseFileService,
-    private val repairConfig: RepairConfigurationProperties,
+    private val healthCheckConfig: HealthCheckConfigurationProperties,
     private val repairOutcomeService: RepairOutcomeService
 ) {
     private val logger = LoggerFactory.getLogger(NzbHealthRepairHandler::class.java)
 
     @Transactional
     fun handle(msg: NzbHealthRepairMessage, msgId: Long) {
-        if (!repairConfig.enabled) {
+        if (!healthCheckConfig.repairEnabled) {
             logger.debug("Repair is disabled, skipping NZB document {}", msg.nzbDocumentId)
             repairOutcomeService.record(QUEUE_NAME, msgId, RepairAction.SKIPPED)
             return

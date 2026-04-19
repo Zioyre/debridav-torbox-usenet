@@ -6,16 +6,20 @@ import io.skjaere.nzbstreamer.NzbStreamer
 import io.skjaere.nzbstreamer.config.NntpConfig
 import jakarta.transaction.Transactional
 import org.slf4j.LoggerFactory
-import org.springframework.core.env.Environment
+import org.springframework.cloud.context.refresh.ContextRefresher
+import org.springframework.core.env.ConfigurableEnvironment
+import org.springframework.core.env.EnumerablePropertySource
 import org.springframework.stereotype.Service
 import java.time.Instant
 
 @Service
 class ConfigOverrideService(
     private val repository: ConfigOverrideRepository,
-    private val environment: Environment,
+    private val environment: ConfigurableEnvironment,
     private val registry: ConfigPropertyRegistry,
     private val nntpConfig: NntpConfigurationProperties,
+    private val contextRefresher: ContextRefresher,
+    private val dbPropertySourceInitializer: DatabasePropertySourceInitializer,
     private val nzbStreamer: NzbStreamer? = null
 ) {
     private val logger = LoggerFactory.getLogger(ConfigOverrideService::class.java)

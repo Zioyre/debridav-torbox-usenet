@@ -13,7 +13,7 @@ class SonarrConfigurationProperties : ArrConfiguration {
     @Suppress("MagicNumber")
     override var port: Int = 8989
     @ConfigProperty(name = "API Base Path", description = "Sonarr API base path", advanced = true)
-    override val apiBasePath: String = "/api/v3",
+    override var apiBasePath: String = "/api/v3"
     @ConfigProperty(name = "API Key", description = "Sonarr API key", sensitive = true)
     override var apiKey: String = ""
     @ConfigProperty(name = "Category", description = "Sonarr category")

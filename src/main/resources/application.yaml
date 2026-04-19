@@ -30,22 +30,16 @@ logging:
   level:
     web: info
     io.milton.http: error
+  file:
+    name: logs/debridav.log
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,realdebrid,prometheus,nzbhealthcheck,torrenthealthcheck
-  endpoint:
-    health:
-      group:
-        readiness:
-          include: fileSystemImportService
-        liveness:
-          exclude: fileSystemImportService
+        include: health,realdebrid,prometheus,nzbhealthcheck,torrenthealthcheck,logfile
 
 debridav:
-  root-path: ${user.dir}/debridav-files
   download-path: /downloads
   mount-path: /data
   debrid-clients:
@@ -58,12 +52,9 @@ debridav:
   should-delete-non-working-files: true
   connect-timeout-milliseconds: 5000
   read-timeout-milliseconds: 5000
-  enable-file-import-on-startup: true
   local-entity-max-size-mb: 130
   default-categories:
   torrent-lifetime: 1d
-  torrent-health-check-interval: P1D
-  torrent-health-check-poll-rate: PT5M
   webdav-username:
   webdav-password:
   db:
@@ -78,8 +69,12 @@ debridav:
     protect-sabnzbd-api: false
     protect-actuator: false
 
-repair:
-  enabled: true
+health-check:
+  repair-enabled: true
+  torrent-interval: P1D
+  torrent-poll-rate: PT5M
+  nzb-interval: 7d
+  nzb-poll-rate: PT5M
 
 premiumize:
   api-key:
@@ -127,9 +122,6 @@ radarr:
 nntp:
   enabled: false
   concurrency: 4
-  forward-threshold-bytes: 102400
-  health-check-interval: 7d
-  health-check-poll-rate: PT5M
   pools:
     - host:
       port: 563

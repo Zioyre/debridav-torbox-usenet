@@ -2,6 +2,8 @@ package io.skjaere.debridav.usenet.queue
 
 import io.skjaere.debridav.repository.DebridFileContentsRepository
 import io.skjaere.debridav.repository.NzbImportRepository
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 
 @Service

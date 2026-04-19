@@ -2,8 +2,8 @@ package io.skjaere.debridav.torrent.pgmq
 
 import io.skjaere.debridav.arrs.ArrService
 import io.skjaere.debridav.fs.DatabaseFileService
+import io.skjaere.debridav.health.HealthCheckConfigurationProperties
 import io.skjaere.debridav.health.RepairAction
-import io.skjaere.debridav.health.RepairConfigurationProperties
 import io.skjaere.debridav.health.RepairOutcomeService
 import io.skjaere.debridav.torrent.TorrentRepository
 import kotlinx.coroutines.runBlocking
@@ -16,14 +16,14 @@ class TorrentHealthRepairHandler(
     private val torrentRepository: TorrentRepository,
     private val arrService: ArrService,
     private val fileService: DatabaseFileService,
-    private val repairConfig: RepairConfigurationProperties,
+    private val healthCheckConfig: HealthCheckConfigurationProperties,
     private val repairOutcomeService: RepairOutcomeService
 ) {
     private val logger = LoggerFactory.getLogger(TorrentHealthRepairHandler::class.java)
 
     @Transactional
     fun handle(msg: TorrentHealthRepairMessage, msgId: Long) {
-        if (!repairConfig.enabled) {
+        if (!healthCheckConfig.repairEnabled) {
             logger.debug("Repair is disabled, skipping torrent {}", msg.torrentId)
             repairOutcomeService.record(QUEUE_NAME, msgId, RepairAction.SKIPPED)
             return

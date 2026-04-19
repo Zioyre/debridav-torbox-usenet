@@ -13,7 +13,7 @@ class RadarrConfigurationProperties : ArrConfiguration {
     @Suppress("MagicNumber")
     override var port: Int = 7878
     @ConfigProperty(name = "API Base Path", description = "Radarr API base path", advanced = true)
-    override val apiBasePath: String = "/api/v3",
+    override var apiBasePath: String = "/api/v3"
     @ConfigProperty(name = "API Key", description = "Radarr API key", sensitive = true)
     override var apiKey: String = ""
     @ConfigProperty(name = "Category", description = "Radarr category")

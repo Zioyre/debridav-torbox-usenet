@@ -39,7 +39,7 @@ import java.time.Instant
         "debridav.debrid-clients=premiumize",
         "sonarr.integration-enabled=true",
         "sonarr.category=tv",
-        "repair.enabled=true"
+        "health-check.repair-enabled=true"
     ]
 )
 @MockServerTest

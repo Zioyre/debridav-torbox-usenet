@@ -55,7 +55,6 @@ class DebridLinkServiceTest {
         mountPath = "${TestContextInitializer.BASE_PATH}/debridav"
         debridClients = listOf(DebridProvider.REAL_DEBRID, DebridProvider.PREMIUMIZE)
         downloadPath = "${TestContextInitializer.BASE_PATH}/downloads"
-        rootPath = "${TestContextInitializer.BASE_PATH}/files"
         retriesOnProviderError = 3
         waitAfterNetworkError = Duration.ofMillis(10000)
         delayBetweenRetries = Duration.ofMillis(1000)
@@ -66,7 +65,6 @@ class DebridLinkServiceTest {
         waitAfterClientError = Duration.ofMillis(1000)
         shouldDeleteNonWorkingFiles = true
         torrentLifetime = Duration.ofMinutes(1)
-        enableFileImportOnStartup = false
         defaultCategories = listOf()
         localEntityMaxSizeMb = 1
     }

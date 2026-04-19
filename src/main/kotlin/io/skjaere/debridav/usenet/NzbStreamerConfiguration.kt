@@ -3,7 +3,6 @@ package io.skjaere.debridav.usenet
 import io.skjaere.debridav.config.ConfigProperty
 import io.skjaere.nzbstreamer.NzbStreamer
 import io.skjaere.nzbstreamer.config.NntpConfig
-import io.skjaere.nzbstreamer.config.SeekConfig
 import io.skjaere.nzbstreamer.config.StreamingConfig
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.ConfigurationProperties
@@ -25,16 +24,14 @@ data class NntpPoolProperties(
 @ConfigurationProperties(prefix = "nntp")
 class NntpConfigurationProperties {
     @ConfigProperty(name = "Concurrency", description = "NNTP streaming concurrency")
-    val concurrency: Int = 4,
-    val readAheadSegments: Int? = null,
-    @ConfigProperty(name = "Forward Threshold Bytes", description = "NNTP forward threshold bytes")
-    var forwardThresholdBytes: Long = 102400L
-    @ConfigProperty(name = "Health Check Interval", description = "NNTP health check interval")
-    var healthCheckInterval: Duration = Duration.ofDays(7)
-    @ConfigProperty(name = "Health Check Poll Rate", description = "NNTP health check poll rate")
-    val healthCheckPollRate: Duration = Duration.ofMinutes(5),
-    val pools: List<NntpPoolProperties> = emptyList()
-)
+    var concurrency: Int = 4
+    @ConfigProperty(
+        name = "Read Ahead Segments",
+        description = "Segments to prefetch per stream. Leave empty to default to the concurrency value."
+    )
+    var readAheadSegments: Int? = null
+    var pools: List<NntpPoolProperties> = emptyList()
+}
 
 @Configuration
 class NzbStreamerConfiguration {
@@ -60,8 +57,7 @@ class NzbStreamerConfiguration {
         }
         return NzbStreamer.fromConfig(
             nntpConfigs,
-            streamingConfig,
-            SeekConfig(forwardThresholdBytes = props.forwardThresholdBytes)
+            streamingConfig
         )
     }
 

@@ -23,7 +23,6 @@ management:
         include: realdebrid
 
 debridav:
-  root-path: /tmp/debridavtests
   download-path: /downloads
   mount-path: /data
   debrid-clients: premiumize,real_debrid,easynews
@@ -36,7 +35,6 @@ debridav:
   should-delete-non-working-files: true
   connect-timeout-milliseconds: 1000
   read-timeout-milliseconds: 1000
-  enable-file-import-on-startup: false
   local-entity-max-size-mb: 1
   default-categories: test1,test2
   torrent-lifetime: 1h
@@ -102,9 +100,6 @@ radarr:
 nntp:
   enabled: false
   concurrency: 4
-  forward-threshold-bytes: 102400
-  health-check-interval: 7d
-  health-check-poll-rate: PT5M
   pools:
     - host:
       port: 563
@@ -112,6 +107,13 @@ nntp:
       password:
       use-tls: true
       max-connections: 8
+
+health-check:
+  repair-enabled: true
+  torrent-interval: P1D
+  torrent-poll-rate: PT5M
+  nzb-interval: 7d
+  nzb-poll-rate: PT5M
 
 pgmq:
   default-visibility-timeout: 5m

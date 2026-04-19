@@ -1,6 +1,7 @@
 package io.skjaere.debridav.usenet
 
 import com.vdsirotkin.pgmq.PgmqClient
+import io.skjaere.debridav.health.HealthCheckConfigurationProperties
 import io.skjaere.debridav.repository.NzbDocumentRepository
 import io.skjaere.debridav.usenet.pgmq.NzbHealthCheckMessage
 import org.slf4j.LoggerFactory
@@ -13,18 +14,18 @@ import java.time.Instant
 @Service
 class NzbHealthCheckService(
     private val nzbDocumentRepository: NzbDocumentRepository,
-    private val nntpConfigurationProperties: NntpConfigurationProperties,
+    private val healthCheckConfigurationProperties: HealthCheckConfigurationProperties,
     private val pgmqClient: PgmqClient,
     private val clock: Clock
 ) {
     private val logger = LoggerFactory.getLogger(NzbHealthCheckService::class.java)
 
-    @Scheduled(fixedDelayString = "\${nntp.health-check-poll-rate}")
+    @Scheduled(fixedDelayString = "\${health-check.nzb-poll-rate}")
     @Transactional
     fun checkNzbHealth() {
         val now = Instant.now(clock)
-        val cutoff = now.minus(nntpConfigurationProperties.healthCheckInterval)
-        val enqueueCutoff = now.minus(nntpConfigurationProperties.healthCheckInterval)
+        val cutoff = now.minus(healthCheckConfigurationProperties.nzbInterval)
+        val enqueueCutoff = now.minus(healthCheckConfigurationProperties.nzbInterval)
         val nzbsToVerify = nzbDocumentRepository
             .findByLastVerifiedIsNullOrLastVerifiedBefore(cutoff)
             .filter { it.healthCheckEnqueuedAt == null || it.healthCheckEnqueuedAt!!.isBefore(enqueueCutoff) }

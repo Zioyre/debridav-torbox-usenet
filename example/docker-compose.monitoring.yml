@@ -3,7 +3,7 @@ services:
   # Dashboard tab can embed the dashboards from this stack.
   debridav:
     environment:
-      DEBRIDAV_UI_GRAFANA_BASEURL: ${UI_GRAFANA_BASEURL:-http://localhost:3000}
+      #DEBRIDAV_UI_GRAFANA_BASEURL: ${UI_GRAFANA_BASEURL:-http://localhost:3000}
       DEBRIDAV_UI_GRAFANA_DASHBOARDS_0_LABEL: Platform
       DEBRIDAV_UI_GRAFANA_DASHBOARDS_0_PATH: /d/f6415a14-af35-4d81-8efb-9a018b0e3ed3/debridav-platform
       DEBRIDAV_UI_GRAFANA_DASHBOARDS_1_LABEL: Rclone

@@ -50,7 +50,6 @@ class NzbImportServiceTest {
     private val pgmqClient = mockk<PgmqClient>()
     private val databaseFileService = mockk<DatabaseFileService>()
     private val config = DebridavConfigurationProperties().apply {
-        rootPath = "/"
         downloadPath = "/downloads"
         mountPath = "/data"
         debridClients = listOf(DebridProvider.EASYNEWS)
@@ -64,7 +63,6 @@ class NzbImportServiceTest {
         readTimeoutMilliseconds = 30000
         shouldDeleteNonWorkingFiles = false
         torrentLifetime = Duration.ofHours(1)
-        enableFileImportOnStartup = false
         defaultCategories = emptyList()
         localEntityMaxSizeMb = 100
     }

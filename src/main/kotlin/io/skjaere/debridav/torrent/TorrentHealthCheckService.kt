@@ -1,7 +1,7 @@
 package io.skjaere.debridav.torrent
 
 import com.vdsirotkin.pgmq.PgmqClient
-import io.skjaere.debridav.configuration.DebridavConfigurationProperties
+import io.skjaere.debridav.health.HealthCheckConfigurationProperties
 import io.skjaere.debridav.torrent.pgmq.TorrentHealthCheckMessage
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
@@ -13,18 +13,18 @@ import java.time.Instant
 @Service
 class TorrentHealthCheckService(
     private val torrentRepository: TorrentRepository,
-    private val debridavConfigurationProperties: DebridavConfigurationProperties,
+    private val healthCheckConfigurationProperties: HealthCheckConfigurationProperties,
     private val pgmqClient: PgmqClient,
     private val clock: Clock
 ) {
     private val logger = LoggerFactory.getLogger(TorrentHealthCheckService::class.java)
 
-    @Scheduled(fixedDelayString = "\${debridav.torrent-health-check-poll-rate:PT5M}")
+    @Scheduled(fixedDelayString = "\${health-check.torrent-poll-rate:PT5M}")
     @Transactional
     fun checkTorrentHealth() {
         val now = Instant.now(clock)
-        val cutoff = now.minus(debridavConfigurationProperties.torrentHealthCheckInterval)
-        val enqueueCutoff = now.minus(debridavConfigurationProperties.torrentHealthCheckInterval)
+        val cutoff = now.minus(healthCheckConfigurationProperties.torrentInterval)
+        val enqueueCutoff = now.minus(healthCheckConfigurationProperties.torrentInterval)
 
         val torrentsToVerify = torrentRepository
             .findByStatusAndLastVerifiedIsNullOrStatusAndLastVerifiedBefore(

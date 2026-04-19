@@ -7,9 +7,6 @@ import java.time.Duration
 
 @ConfigurationProperties(prefix = "debridav")
 class DebridavConfigurationProperties {
-    @ConfigProperty(name = "Root Path", description = "Root path")
-    lateinit var rootPath: String
-
     @ConfigProperty(name = "Download Path", description = "Download path")
     lateinit var downloadPath: String
 
@@ -61,28 +58,11 @@ class DebridavConfigurationProperties {
     @ConfigProperty(name = "Torrent Lifetime", description = "Torrent lifetime duration", advanced = true)
     var torrentLifetime: Duration = Duration.ZERO
 
-    @ConfigProperty(name = "File Import on Startup", description = "Enable file import on startup", advanced = true)
-    var enableFileImportOnStartup: Boolean = false
-
     @ConfigProperty(name = "Default Categories", description = "Default categories (comma-separated)", advanced = true)
     var defaultCategories: List<String> = emptyList()
 
     @ConfigProperty(name = "Max Local Entity Size (MB)", description = "Max local entity size in MB", advanced = true)
     var localEntityMaxSizeMb: Int = 0
-
-    @ConfigProperty(
-        name = "Torrent Health Check Interval",
-        description = "How often to reverify torrent availability",
-        advanced = true
-    )
-    var torrentHealthCheckInterval: Duration = Duration.ofDays(1)
-
-    @ConfigProperty(
-        name = "Torrent Health Check Poll Rate",
-        description = "How often to poll for torrents needing health checks",
-        advanced = true
-    )
-    var torrentHealthCheckPollRate: Duration = Duration.ofMinutes(5)
 
     @ConfigProperty(name = "WebDAV Username", description = "WebDAV username", group = "webdav")
     var webdavUsername: String? = null

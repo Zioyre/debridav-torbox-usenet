@@ -14,6 +14,16 @@ class UsenetQueueController(private val queueService: UsenetQueueService) {
     fun getQueueStatus(): ResponseEntity<QueueStatusResponse> =
         ResponseEntity.ok(queueService.getQueueStatus())
 
+    @GetMapping("/history")
+    fun getHistory(
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
+        @RequestParam(defaultValue = "") search: String,
+        @RequestParam(defaultValue = "updatedAt") sort: String,
+        @RequestParam(defaultValue = "desc") direction: String
+    ): ResponseEntity<HistoryPageResponse> =
+        ResponseEntity.ok(queueService.getHistory(page, size, search, sort, direction))
+
     @GetMapping("/{id}/files")
     fun getItemFiles(@PathVariable id: Long): ResponseEntity<List<NzbImportFileJson>> {
         val files = queueService.resolveCurrentFilePaths(id)
