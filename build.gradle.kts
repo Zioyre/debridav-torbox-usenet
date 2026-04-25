@@ -93,6 +93,7 @@ dependencies {
     implementation(libs.resilience4j.kotlin)
     implementation(libs.resilience4j.ratelimiter)
     implementation(libs.resilience4j.retry)
+    implementation(libs.resilience4j.micrometer)
     implementation(libs.logstash.logback.encoder)
     implementation(libs.ktor.client.apache5)
     implementation(libs.ktor.client.java)
