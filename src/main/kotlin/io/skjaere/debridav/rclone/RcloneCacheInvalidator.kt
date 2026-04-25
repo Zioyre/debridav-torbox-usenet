@@ -64,9 +64,10 @@ class RcloneCacheInvalidator(
 
     @EventListener
     fun onChange(event: FileSystemChangedEvent) {
-        if (!debridavConfig.rcloneCacheInvalidationEnabled) return
-        if (rcloneConfig.rcUrl.isBlank()) return
-        if (event.paths.isEmpty()) return
+        if (!debridavConfig.rcloneCacheInvalidationEnabled
+            || rcloneConfig.rcUrl.isBlank()
+            || event.paths.isEmpty()
+        ) return
 
         // Include every ancestor of each changed path so rclone refreshes
         // the parent listings too — otherwise a new directory (e.g. the

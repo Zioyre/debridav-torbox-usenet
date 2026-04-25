@@ -26,6 +26,7 @@ private const val ROOT_NODE = "ROOT"
 private const val MEGABYTE = 1024 * 1024
 
 @Service
+@Suppress("TooManyFunctions")
 class DatabaseFileService(
     private val debridFileRepository: DebridFileContentsRepository,
     private val debridavConfigurationProperties: DebridavConfigurationProperties,

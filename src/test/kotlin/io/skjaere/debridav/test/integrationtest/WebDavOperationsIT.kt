@@ -492,7 +492,9 @@ class WebDavOperationsIT {
         //given
         sardine.createDirectory("http://localhost:${randomServerPort}/webdav/testDirectory")
         sardine.createDirectory("http://localhost:${randomServerPort}/webdav/testDirectory/subDirectory")
-        sardine.createDirectory("http://localhost:${randomServerPort}/webdav/testDirectory/subDirectory/secondSubDirectory")
+        sardine.createDirectory(
+            "http://localhost:${randomServerPort}/webdav/testDirectory/subDirectory/secondSubDirectory"
+        )
 
         assertThat(
             listDirectory("/"), allOf(

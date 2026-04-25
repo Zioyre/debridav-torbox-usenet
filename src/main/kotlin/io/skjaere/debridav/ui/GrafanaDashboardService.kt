@@ -21,7 +21,8 @@ class GrafanaDashboardService(
     private val logger = LoggerFactory.getLogger(GrafanaDashboardService::class.java)
 
     suspend fun listDashboards(): List<DashboardDto> {
-        val baseUrl = uiConfig.grafana.baseUrl.trimEnd('/').ifBlank { return emptyList() }
+        val baseUrl = uiConfig.grafana.baseUrl.trimEnd('/')
+        if (baseUrl.isBlank()) return emptyList()
         val apiKey = uiConfig.grafana.apiKey.ifBlank { null }
 
         return try {
@@ -29,15 +30,16 @@ class GrafanaDashboardService(
                 accept(ContentType.Application.Json)
                 if (apiKey != null) bearerAuth(apiKey)
             }
-            if (!response.status.isSuccess()) {
+            if (response.status.isSuccess()) {
+                val entries: List<GrafanaSearchEntry> = response.body()
+                entries
+                    .filter { it.folderTitle == DEBRIDAV_FOLDER }
+                    .map { DashboardDto(label = it.title, path = it.url) }
+                    .sortedBy { it.label }
+            } else {
                 logger.warn("Grafana returned {} when listing dashboards", response.status)
-                return emptyList()
+                emptyList()
             }
-            val entries: List<GrafanaSearchEntry> = response.body()
-            entries
-                .filter { it.folderTitle == DEBRIDAV_FOLDER }
-                .map { DashboardDto(label = it.title, path = it.url) }
-                .sortedBy { it.label }
         } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
             logger.warn("Failed to fetch dashboards from Grafana at {}: {}", baseUrl, e.message)
             emptyList()

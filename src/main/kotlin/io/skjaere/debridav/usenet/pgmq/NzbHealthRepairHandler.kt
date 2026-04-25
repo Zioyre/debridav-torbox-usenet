@@ -43,13 +43,12 @@ class NzbHealthRepairHandler(
         }
 
         healthMetrics.timeRepair(HealthType.NZB) {
-            val action = executeRepair(msg, msgId, nzbDocument)
+            val action = executeRepair(msgId, nzbDocument)
             healthMetrics.recordRepair(HealthType.NZB, action.name)
         }
     }
 
     private fun executeRepair(
-        msg: NzbHealthRepairMessage,
         msgId: Long,
         nzbDocument: io.skjaere.debridav.usenet.nzb.NzbDocumentEntity
     ): RepairAction {

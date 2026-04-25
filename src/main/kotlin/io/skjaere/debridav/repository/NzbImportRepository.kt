@@ -14,7 +14,8 @@ interface NzbImportRepository : JpaRepository<NzbImportRecord, Long> {
     fun findByStatusInOrderByIdAsc(statuses: Collection<NzbImportStatus>): List<NzbImportRecord>
 
     @Query(
-        "SELECT r FROM NzbImportRecord r WHERE r.status IN :statuses AND LOWER(r.name) LIKE LOWER(CONCAT('%', :search, '%'))"
+        "SELECT r FROM NzbImportRecord r WHERE r.status IN :statuses " +
+            "AND LOWER(r.name) LIKE LOWER(CONCAT('%', :search, '%'))"
     )
     fun findByStatusInAndNameSearch(
         statuses: Collection<NzbImportStatus>,

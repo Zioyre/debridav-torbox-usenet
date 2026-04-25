@@ -58,7 +58,6 @@ class StreamingService(
     private val activeInputStreams = ConcurrentLinkedQueue<InputStreamingContext>()
 
 
-    @Suppress("TooGenericExceptionCaught")
     suspend fun streamContents(
         debridLink: CachedFile,
         range: Range?,
@@ -67,77 +66,88 @@ class StreamingService(
         client: String,
     ): StreamResult = coroutineScope {
         val result = try {
-            val appliedRange = Range(range?.start ?: 0, range?.finish ?: (debridLink.size!! - 1))
-            val inputCounter = ByteCounter()
-            val outputCounter = ByteCounter()
-            val inputCtx = InputStreamingContext(inputCounter, debridLink.provider!!, debridLink.path!!, client)
-            val outputCtx = OutputStreamingContext(outputCounter, remotelyCachedEntity.name!!, client)
-            activeInputStreams.add(inputCtx)
-            activeOutputStream.add(outputCtx)
-            val started = Instant.now()
-            var ttfbRecorded = false
-            val sawActivity = AtomicBoolean(true)
-            val watchdog = launch {
-                while (isActive) {
-                    delay(STALL_TIMEOUT_MS)
-                    if (!sawActivity.getAndSet(false)) {
-                        logger.warn(
-                            "Stream '{}' stalled (>{}ms without bytes); closing output to unblock write",
-                            debridLink.path, STALL_TIMEOUT_MS
-                        )
-                        runCatching { outputStream.close() }
-                        break
-                    }
-                }
-            }
-            try {
-                sendBytesFromHttpStream(debridLink, appliedRange, outputStream) { bytes ->
-                    if (!ttfbRecorded) {
-                        ttfbRecorded = true
-                        Timer.builder("debridav.streaming.time.to.first.byte")
-                            .description("Time duration between sending request and receiving first byte")
-                            .tag("provider", debridLink.provider.toString())
-                            .tag("client", client)
-                            .register(meterRegistry)
-                            .record(Duration.between(started, Instant.now()))
-                    }
-                    inputCounter.add(bytes.toLong())
-                    outputCounter.add(bytes.toLong())
-                    sawActivity.set(true)
-                }
-            } finally {
-                watchdog.cancel()
-                activeOutputStream.removeStream(outputCtx)
-                activeInputStreams.removeStream(inputCtx)
-            }
-            StreamResult.OK
-        } catch (_: LinkNotFoundException) {
-            StreamResult.DEAD_LINK
-        } catch (_: DebridProviderException) {
-            StreamResult.PROVIDER_ERROR
-        } catch (_: StreamToClientException) {
-            StreamResult.IO_ERROR
-        } catch (_: ReadFromHttpStreamException) {
-            StreamResult.IO_ERROR
-        } catch (_: ClientErrorException) {
-            StreamResult.CLIENT_ERROR
-        } catch (_: ClientAbortException) {
-            StreamResult.OK
-        } catch (_: AsyncRequestNotUsableException) {
-            StreamResult.OK
-        } catch (e: kotlinx.io.IOException) {
-            logger.error("IOError occurred during streaming", e)
-            StreamResult.IO_ERROR
+            runStreamingPipeline(debridLink, range, outputStream, remotelyCachedEntity, client)
         } catch (e: CancellationException) {
             throw e
-        } catch (e: Exception) {
-            logger.error("An error occurred during streaming ${debridLink.path}", e)
-            StreamResult.UNKNOWN_ERROR
+        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+            mapToStreamResult(e, debridLink)
         } finally {
             this.coroutineContext.cancelChildren()
         }
         logger.info("done streaming ${debridLink.path}: $result")
         result
+    }
+
+    @Suppress("LongParameterList")
+    private suspend fun runStreamingPipeline(
+        debridLink: CachedFile,
+        range: Range?,
+        outputStream: OutputStream,
+        remotelyCachedEntity: RemotelyCachedEntity,
+        client: String,
+    ): StreamResult = coroutineScope {
+        val appliedRange = Range(range?.start ?: 0, range?.finish ?: (debridLink.size!! - 1))
+        val inputCounter = ByteCounter()
+        val outputCounter = ByteCounter()
+        val inputCtx = InputStreamingContext(inputCounter, debridLink.provider!!, debridLink.path!!, client)
+        val outputCtx = OutputStreamingContext(outputCounter, remotelyCachedEntity.name!!, client)
+        activeInputStreams.add(inputCtx)
+        activeOutputStream.add(outputCtx)
+        val started = Instant.now()
+        var ttfbRecorded = false
+        val sawActivity = AtomicBoolean(true)
+        val watchdog = launch {
+            while (isActive) {
+                delay(STALL_TIMEOUT_MS)
+                if (!sawActivity.getAndSet(false)) {
+                    logger.warn(
+                        "Stream '{}' stalled (>{}ms without bytes); closing output to unblock write",
+                        debridLink.path, STALL_TIMEOUT_MS
+                    )
+                    runCatching { outputStream.close() }
+                    break
+                }
+            }
+        }
+        try {
+            sendBytesFromHttpStream(debridLink, appliedRange, outputStream) { bytes ->
+                if (!ttfbRecorded) {
+                    ttfbRecorded = true
+                    Timer.builder("debridav.streaming.time.to.first.byte")
+                        .description("Time duration between sending request and receiving first byte")
+                        .tag("provider", debridLink.provider.toString())
+                        .tag("client", client)
+                        .register(meterRegistry)
+                        .record(Duration.between(started, Instant.now()))
+                }
+                inputCounter.add(bytes.toLong())
+                outputCounter.add(bytes.toLong())
+                sawActivity.set(true)
+            }
+        } finally {
+            watchdog.cancel()
+            activeOutputStream.removeStream(outputCtx)
+            activeInputStreams.removeStream(inputCtx)
+        }
+        StreamResult.OK
+    }
+
+    private fun mapToStreamResult(e: Exception, debridLink: CachedFile): StreamResult = when (e) {
+        is LinkNotFoundException -> StreamResult.DEAD_LINK
+        is DebridProviderException -> StreamResult.PROVIDER_ERROR
+        is StreamToClientException -> StreamResult.IO_ERROR
+        is ReadFromHttpStreamException -> StreamResult.IO_ERROR
+        is ClientErrorException -> StreamResult.CLIENT_ERROR
+        is ClientAbortException -> StreamResult.OK
+        is AsyncRequestNotUsableException -> StreamResult.OK
+        is kotlinx.io.IOException -> {
+            logger.error("IOError occurred during streaming", e)
+            StreamResult.IO_ERROR
+        }
+        else -> {
+            logger.error("An error occurred during streaming ${debridLink.path}", e)
+            StreamResult.UNKNOWN_ERROR
+        }
     }
 
 

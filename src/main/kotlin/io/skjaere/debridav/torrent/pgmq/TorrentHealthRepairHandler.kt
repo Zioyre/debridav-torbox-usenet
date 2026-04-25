@@ -41,12 +41,11 @@ class TorrentHealthRepairHandler(
         }
 
         healthMetrics.timeRepair(HealthType.TORRENT) {
-            executeRepair(msg, msgId, torrent)
+            executeRepair(msgId, torrent)
         }
     }
 
-    private fun executeRepair(msg: TorrentHealthRepairMessage, msgId: Long, torrent: io.skjaere.debridav.torrent.Torrent) {
-
+    private fun executeRepair(msgId: Long, torrent: io.skjaere.debridav.torrent.Torrent) {
         val category = torrent.category?.name
         val hash = torrent.hash
 
