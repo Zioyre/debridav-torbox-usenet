@@ -38,20 +38,25 @@ class LibraryMetricsService(
             true,
         )
 
-        val perProviderStats = debridFileContentsRepository.getLibraryMetricsTorrents()
-            .toLibraryTorrentStats(numberOfTorrentEntities)
+        val torrentStats = debridFileContentsRepository.getLibraryMetricsTorrents()
+            .toLibraryStats(numberOfTorrentEntities)
+            .map { "torrent" to it }
+        val usenetStats = debridFileContentsRepository.getLibraryMetricsUsenet()
+            .toLibraryStats(numberOfUsenetEntities)
+            .map { "usenet" to it }
+
         cachedStatusGauge.register(
-            perProviderStats.map {
+            (torrentStats + usenetStats).map { (source, stat) ->
                 MultiGauge.Row.of(
-                    Tags.of("provider", it.provider, "type", it.type),
-                    it.count.toDouble(),
+                    Tags.of("source", source, "provider", stat.provider, "type", stat.type),
+                    stat.count.toDouble(),
                 )
             },
             true,
         )
     }
 
-    fun List<Map<String, Any>>.toLibraryTorrentStats(numberOfTotalEntities: Long): List<LibraryStats> {
+    fun List<Map<String, Any>>.toLibraryStats(numberOfTotalEntities: Long): List<LibraryStats> {
         return this.map {
             LibraryStats(
                 (it["provider"] as String).replace("\"", ""),

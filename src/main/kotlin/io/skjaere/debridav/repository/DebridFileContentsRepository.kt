@@ -72,13 +72,23 @@ interface DebridFileContentsRepository : CrudRepository<DbEntity, Long> {
 
     @Query(
         """
-        select  jsonb_path_query(debrid_links, '$[*].provider') as provider, 
-                jsonb_path_query(debrid_links, '$[*].\@type') as type, 
+        select  jsonb_path_query(debrid_links, '$[*].provider') as provider,
+                jsonb_path_query(debrid_links, '$[*].\@type') as type,
                 count(*) as count
         from debrid_cached_torrent_content group by provider, type;
     """, nativeQuery = true
     )
     fun getLibraryMetricsTorrents(): List<Map<String, Any>>
+
+    @Query(
+        """
+        select  jsonb_path_query(debrid_links, '$[*].provider') as provider,
+                jsonb_path_query(debrid_links, '$[*].\@type') as type,
+                count(*) as count
+        from debrid_cached_usenet_release_content group by provider, type;
+    """, nativeQuery = true
+    )
+    fun getLibraryMetricsUsenet(): List<Map<String, Any>>
 
     @Query("select count(*) from DebridCachedTorrentContent ")
     fun numberOfRemotelyCachedTorrentEntities(): Long
