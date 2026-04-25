@@ -21,6 +21,9 @@ import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.io.EOFException
 import org.apache.catalina.connector.ClientAbortException
@@ -33,11 +36,13 @@ import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 
 private const val DEFAULT_BUFFER_SIZE = 256 * 1024 //256kb
 private const val READ_AHEAD_CHUNKS = 200 // 50Mb
 private const val STREAMING_METRICS_POLLING_RATE_S = 5L //5 seconds
+private const val STALL_TIMEOUT_MS = 5 * 60 * 1000L // 5 minutes
 
 @Service
 class StreamingService(
@@ -71,6 +76,20 @@ class StreamingService(
             activeOutputStream.add(outputCtx)
             val started = Instant.now()
             var ttfbRecorded = false
+            val sawActivity = AtomicBoolean(true)
+            val watchdog = launch {
+                while (isActive) {
+                    delay(STALL_TIMEOUT_MS)
+                    if (!sawActivity.getAndSet(false)) {
+                        logger.warn(
+                            "Stream '{}' stalled (>{}ms without bytes); closing output to unblock write",
+                            debridLink.path, STALL_TIMEOUT_MS
+                        )
+                        runCatching { outputStream.close() }
+                        break
+                    }
+                }
+            }
             try {
                 sendBytesFromHttpStream(debridLink, appliedRange, outputStream) { bytes ->
                     if (!ttfbRecorded) {
@@ -84,8 +103,10 @@ class StreamingService(
                     }
                     inputCounter.add(bytes.toLong())
                     outputCounter.add(bytes.toLong())
+                    sawActivity.set(true)
                 }
             } finally {
+                watchdog.cancel()
                 activeOutputStream.removeStream(outputCtx)
                 activeInputStreams.removeStream(inputCtx)
             }
