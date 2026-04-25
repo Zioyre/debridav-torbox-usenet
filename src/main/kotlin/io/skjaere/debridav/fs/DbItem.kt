@@ -61,6 +61,14 @@ open class DbDirectory : DbEntity() {
         ?.filter { it != "ROOT" }
         ?.joinToString("/") { Base58.decode(it).decodeToString() }
         ?.let { "/$it" }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is DbDirectory) return false
+        return path != null && path == other.path
+    }
+
+    override fun hashCode(): Int = path?.hashCode() ?: 0
 }
 
 @Entity

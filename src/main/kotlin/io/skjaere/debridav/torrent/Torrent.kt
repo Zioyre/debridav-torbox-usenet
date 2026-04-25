@@ -26,7 +26,7 @@ open class Torrent {
     @OneToMany(
         targetEntity = RemotelyCachedEntity::class,
         cascade = [CascadeType.PERSIST, CascadeType.MERGE],
-        fetch = FetchType.EAGER,
+        fetch = FetchType.LAZY,
     )
     open var files: MutableList<RemotelyCachedEntity> = mutableListOf()
     open var created: Instant? = null
@@ -43,6 +43,17 @@ open class Torrent {
 
     @Column(name = "health_check_enqueued_at")
     open var healthCheckEnqueuedAt: Instant? = null
+
+    // Equality on the business key (info-hash). Hibernate proxies are subclasses
+    // of the entity, so the `is Torrent` check works for both real and proxied
+    // instances.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Torrent) return false
+        return hash != null && hash == other.hash
+    }
+
+    override fun hashCode(): Int = hash?.hashCode() ?: 0
 }
 
 enum class Status { LIVE, DELETED }

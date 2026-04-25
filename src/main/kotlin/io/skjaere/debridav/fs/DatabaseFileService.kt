@@ -272,7 +272,11 @@ class DatabaseFileService(
         return getOrCreateDirectory(if (path != "/") Strings.CS.removeEnd(path, "/") else path)
     }
 
-    @Transactional
+    // No @Transactional: Spring binds the transaction to a thread, but a suspend
+    // function can resume on a different thread (especially with the explicit
+    // withContext(Dispatchers.IO) below), so the annotation was a no-op here.
+    // The two repository calls are read-only and run in their own short-lived
+    // Spring Data read transactions, which is what we want.
     suspend fun getChildren(directory: DbDirectory): List<DbEntity> = withContext(Dispatchers.IO) {
         listOf(
             async { debridFileRepository.getChildrenByDirectory(directory) },

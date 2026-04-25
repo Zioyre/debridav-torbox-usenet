@@ -6,6 +6,7 @@ import io.skjaere.debridav.debrid.DebridCachedContentService
 import io.skjaere.debridav.debrid.TorrentMagnet
 import io.skjaere.debridav.fs.DatabaseFileService
 import io.skjaere.debridav.fs.DebridFileContents
+import io.skjaere.debridav.fs.RemotelyCachedEntity
 import jakarta.transaction.Transactional
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
@@ -89,6 +90,13 @@ class TorrentService(
 
     fun getTorrentByHash(hash: TorrentHash): Torrent? {
         return torrentRepository.getByHashIgnoreCase(hash.hash)
+    }
+
+    @Transactional
+    fun getTorrentFilesByHash(hash: TorrentHash): List<RemotelyCachedEntity>? {
+        // Touch files inside the transaction so Hibernate initializes the lazy
+        // collection before we hand it back to a controller (OSIV is off).
+        return torrentRepository.getByHashIgnoreCase(hash.hash)?.files?.toList()
     }
 
     @Transactional

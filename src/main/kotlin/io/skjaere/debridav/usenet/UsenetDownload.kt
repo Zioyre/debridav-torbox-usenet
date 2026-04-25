@@ -37,9 +37,19 @@ open class UsenetDownload {
     @OneToMany(
         targetEntity = RemotelyCachedEntity::class,
         cascade = [CascadeType.PERSIST, CascadeType.MERGE],
-        fetch = FetchType.EAGER,
+        fetch = FetchType.LAZY,
     )
     open var debridFiles: MutableList<RemotelyCachedEntity> = mutableListOf()
+
+    // Equality on the business key (NZB-bytes md5). `is UsenetDownload` matches
+    // Hibernate proxies as well as real instances.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is UsenetDownload) return false
+        return hash != null && hash == other.hash
+    }
+
+    override fun hashCode(): Int = hash?.hashCode() ?: 0
 }
 
 enum class UsenetDownloadStatus {
