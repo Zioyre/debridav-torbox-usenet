@@ -9,6 +9,7 @@ import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.delete
 import io.ktor.client.request.forms.FormDataContent
 import io.ktor.client.request.get
+import io.ktor.client.request.head
 import io.ktor.client.request.headers
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -364,22 +365,43 @@ class RealDebridClient(
 
 
     override suspend fun getStreamableLink(key: TorrentMagnet, cachedFile: CachedFile): String? {
-        return realDebridDownloadService.getDownloadByHashAndFilenameAndSize(
+        val existing = realDebridDownloadService.getDownloadByHashAndFilenameAndSize(
             cachedFile.path!!,
             cachedFile.size!!,
             key.getHash()!!
-        )?.let { realDebridDownload ->
-            realDebridDownload.download
-        } ?: run {
-            getFreshRealDebridLink(key, cachedFile.path!!, cachedFile.size!!)
-                ?.let {
-                    val unrestrictResult = unrestrictLink(it)
-                    when (unrestrictResult) {
-                        is SuccessfulUnrestrictLinkResponse -> unrestrictResult.realDebridDownloadEntity.download
-                        else -> null
-                    }
-                }
+        )
+        if (existing?.download != null && isDownloadUrlAlive(existing.download!!)) {
+            return existing.download
         }
+        if (existing != null) {
+            logger.info(
+                "RD download {} (link={}) is no longer alive — deleting and refreshing",
+                existing.downloadId, existing.link
+            )
+            existing.downloadId?.let { id -> runCatching { deleteDownload(id) } }
+            realDebridDownloadService.deleteDownload(existing)
+        }
+        // Reuse the cached share link when we have one — it's the same value
+        // getFreshRealDebridLink would resolve from the torrent, but skipping
+        // that lookup means one less round-trip.
+        val shareLink = existing?.link
+            ?: getFreshRealDebridLink(key, cachedFile.path!!, cachedFile.size!!)
+        return shareLink?.let {
+            when (val result = unrestrictLink(it)) {
+                is SuccessfulUnrestrictLinkResponse -> result.realDebridDownloadEntity.download
+                else -> null
+            }
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun isDownloadUrlAlive(url: String): Boolean = try {
+        realDebridRateLimiter.executeSuspendFunction {
+            httpClient.head(url).status.isSuccess()
+        }
+    } catch (e: Exception) {
+        logger.debug("HEAD on RD download URL failed; treating as dead: {}", e.message)
+        false
     }
 
     suspend fun getFreshRealDebridLink(magnet: TorrentMagnet, filename: String, filesize: Long): String? {
