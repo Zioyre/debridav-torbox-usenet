@@ -10,9 +10,6 @@ import jakarta.persistence.EntityManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.apache.commons.lang3.Strings
 import org.hibernate.engine.jdbc.proxy.BlobProxy
@@ -22,6 +19,8 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.io.InputStream
 import java.time.Instant
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 private const val ROOT_NODE = "ROOT"
 private const val MEGABYTE = 1024 * 1024
@@ -36,7 +35,7 @@ class DatabaseFileService(
     private val eventPublisher: ApplicationEventPublisher,
 ) {
     private val logger = LoggerFactory.getLogger(DatabaseFileService::class.java)
-    private val lock = Mutex()
+    private val lock = ReentrantLock()
     private val defaultDirectories = listOf("/", "/downloads", "/tv", "/movies")
 
     init {
@@ -50,7 +49,7 @@ class DatabaseFileService(
     @Transactional
     fun createDebridFile(
         path: String, hash: String, debridFileContents: DebridFileContents
-    ): RemotelyCachedEntity = runBlocking {
+    ): RemotelyCachedEntity {
         val directory = getOrCreateDirectory(path.substringBeforeLast("/"))
         val name = path.substringAfterLast("/")
 
@@ -75,7 +74,7 @@ class DatabaseFileService(
 
         logger.debug("Creating ${directory.path}/${fileEntity.name}")
         emitChange(parentOf(path))
-        fileEntity
+        return fileEntity
     }
 
     @Transactional
@@ -280,19 +279,17 @@ class DatabaseFileService(
     }
 
     @Transactional
-    fun getOrCreateDirectory(path: String): DbDirectory = runBlocking {
-        lock.withLock {
-            getDirectoryTreePaths(path).map {
-                val directoryEntity = debridFileRepository.getDirectoryByPath(it.pathToLtree())
-                if (directoryEntity == null) {
-                    val newDirectoryEntity = DbDirectory()
-                    newDirectoryEntity.path = it.pathToLtree()
-                    newDirectoryEntity.name = if (it != "/") it.substringAfterLast("/") else null
-                    newDirectoryEntity.lastModified = Instant.now().toEpochMilli()
-                    debridFileRepository.save(newDirectoryEntity)
-                } else directoryEntity
-            }.last()
-        }
+    fun getOrCreateDirectory(path: String): DbDirectory = lock.withLock {
+        getDirectoryTreePaths(path).map {
+            val directoryEntity = debridFileRepository.getDirectoryByPath(it.pathToLtree())
+            if (directoryEntity == null) {
+                val newDirectoryEntity = DbDirectory()
+                newDirectoryEntity.path = it.pathToLtree()
+                newDirectoryEntity.name = if (it != "/") it.substringAfterLast("/") else null
+                newDirectoryEntity.lastModified = Instant.now().toEpochMilli()
+                debridFileRepository.save(newDirectoryEntity)
+            } else directoryEntity
+        }.last()
     }
 
 
