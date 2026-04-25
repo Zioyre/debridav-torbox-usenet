@@ -6,6 +6,14 @@
 
 rootProject.name = "debridav"
 
+if (file("../yenc_kotlin_wrapper").exists()) {
+    includeBuild("../yenc_kotlin_wrapper") {
+        dependencySubstitution {
+            substitute(module("com.github.skjaere:rapidyenc-kotlin-wrapper")).using(project(":"))
+        }
+    }
+}
+
 if (file("../ktor-nntp-client").exists()) {
     includeBuild("../ktor-nntp-client") {
         dependencySubstitution {
