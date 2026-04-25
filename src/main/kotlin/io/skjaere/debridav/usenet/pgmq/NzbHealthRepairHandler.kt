@@ -3,6 +3,8 @@ package io.skjaere.debridav.usenet.pgmq
 import io.skjaere.debridav.arrs.ArrService
 import io.skjaere.debridav.fs.DatabaseFileService
 import io.skjaere.debridav.health.HealthCheckConfigurationProperties
+import io.skjaere.debridav.health.HealthMetrics
+import io.skjaere.debridav.health.HealthMetrics.HealthType
 import io.skjaere.debridav.health.RepairAction
 import io.skjaere.debridav.health.RepairOutcomeService
 import io.skjaere.debridav.repository.NzbDocumentRepository
@@ -19,7 +21,8 @@ class NzbHealthRepairHandler(
     private val arrService: ArrService,
     private val fileService: DatabaseFileService,
     private val healthCheckConfig: HealthCheckConfigurationProperties,
-    private val repairOutcomeService: RepairOutcomeService
+    private val repairOutcomeService: RepairOutcomeService,
+    private val healthMetrics: HealthMetrics,
 ) {
     private val logger = LoggerFactory.getLogger(NzbHealthRepairHandler::class.java)
 
@@ -28,15 +31,28 @@ class NzbHealthRepairHandler(
         if (!healthCheckConfig.repairEnabled) {
             logger.debug("Repair is disabled, skipping NZB document {}", msg.nzbDocumentId)
             repairOutcomeService.record(QUEUE_NAME, msgId, RepairAction.SKIPPED)
+            healthMetrics.recordRepair(HealthType.NZB, RepairAction.SKIPPED.name)
             return
         }
 
         val nzbDocument = nzbDocumentRepository.findById(msg.nzbDocumentId).orElse(null)
         if (nzbDocument == null) {
             logger.warn("No NzbDocument found for ID {}", msg.nzbDocumentId)
+            healthMetrics.recordRepair(HealthType.NZB, "NOT_FOUND")
             return
         }
 
+        healthMetrics.timeRepair(HealthType.NZB) {
+            val action = executeRepair(msg, msgId, nzbDocument)
+            healthMetrics.recordRepair(HealthType.NZB, action.name)
+        }
+    }
+
+    private fun executeRepair(
+        msg: NzbHealthRepairMessage,
+        msgId: Long,
+        nzbDocument: io.skjaere.debridav.usenet.nzb.NzbDocumentEntity
+    ): RepairAction {
         val category = nzbDocument.category
         val name = nzbDocument.name
         if (category == null || name == null) {
@@ -46,10 +62,10 @@ class NzbHealthRepairHandler(
             )
             deleteVirtualFiles(nzbDocument.id!!)
             repairOutcomeService.record(QUEUE_NAME, msgId, RepairAction.DELETED)
-            return
+            return RepairAction.DELETED
         }
 
-        if (arrService.getClientForCategory(category) != null) {
+        return if (arrService.getClientForCategory(category) != null) {
             val downloadId = nzbDocument.downloadId
             if (downloadId != null) {
                 logger.info(
@@ -69,16 +85,18 @@ class NzbHealthRepairHandler(
                 name, category
             )
             val found = runBlocking { arrService.deleteFileAndSearch(name, category) }
-            if (!found) {
+            val action = if (!found) {
                 logger.info(
                     "Arr could not find '{}', deleting from virtual filesystem",
                     name
                 )
                 deleteVirtualFiles(nzbDocument.id!!)
-                repairOutcomeService.record(QUEUE_NAME, msgId, RepairAction.DELETED)
+                RepairAction.DELETED
             } else {
-                repairOutcomeService.record(QUEUE_NAME, msgId, RepairAction.REPAIRED)
+                RepairAction.REPAIRED
             }
+            repairOutcomeService.record(QUEUE_NAME, msgId, action)
+            action
         } else {
             logger.info(
                 "No Arr client for NZB {} (category: {}), deleting files from virtual filesystem",
@@ -86,6 +104,7 @@ class NzbHealthRepairHandler(
             )
             deleteVirtualFiles(nzbDocument.id!!)
             repairOutcomeService.record(QUEUE_NAME, msgId, RepairAction.DELETED)
+            RepairAction.DELETED
         }
     }
 
