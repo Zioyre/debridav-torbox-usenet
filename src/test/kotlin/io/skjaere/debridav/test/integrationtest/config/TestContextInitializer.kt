@@ -49,8 +49,6 @@ class TestContextInitializer : ApplicationContextInitializer<ConfigurableApplica
         val dbUrl = postgreSQLContainer.jdbcUrl
         val dbUsername = "postgres"
         val dbPassword = "postgres"
-        val nntpHost = mockNntpServerContainer.nntpHost
-        val nntpPort = mockNntpServerContainer.nntpPort.toString()
         TestPropertyValues.of(
             "premiumize.baseurl=http://localhost:$port/premiumize",
             "realdebrid.baseurl=http://localhost:$port/realdebrid",
@@ -65,9 +63,6 @@ class TestContextInitializer : ApplicationContextInitializer<ConfigurableApplica
             "spring.datasource.username=$dbUsername",
             "spring.datasource.password=$dbPassword",
             "easynews.api-base-url=http://localhost:$port/easynews",
-            "nntp.pools[0].host=$nntpHost",
-            "nntp.pools[0].port=$nntpPort",
-            "nntp.pools[0].use-tls=false"
         ).applyTo(applicationContext)
     }
 }

@@ -98,15 +98,7 @@ radarr:
   category: radarr
 
 nntp:
-  enabled: false
   concurrency: 4
-  pools:
-    - host:
-      port: 563
-      username:
-      password:
-      use-tls: true
-      max-connections: 8
 
 health-check:
   repair-enabled: true

@@ -121,15 +121,7 @@ radarr:
   category: radarr
 
 nntp:
-  enabled: false
   concurrency: 4
-  pools:
-    - host:
-      port: 563
-      username:
-      password:
-      use-tls: true
-      max-connections: 60
 
 pgmq:
   default-visibility-timeout: 5m

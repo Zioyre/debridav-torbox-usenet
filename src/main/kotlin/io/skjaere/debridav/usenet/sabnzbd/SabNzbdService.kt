@@ -3,12 +3,14 @@ package io.skjaere.debridav.usenet.sabnzbd
 import io.skjaere.debridav.category.CategoryService
 import io.skjaere.debridav.configuration.DebridavConfigurationProperties
 import io.skjaere.debridav.debrid.DebridCachedContentService
+import io.skjaere.debridav.debrid.DebridProvider
 import io.skjaere.debridav.debrid.UsenetRelease
 import io.skjaere.debridav.fs.DatabaseFileService
 import io.skjaere.debridav.fs.DebridFileContents
 import io.skjaere.debridav.fs.RemotelyCachedEntity
 import io.skjaere.debridav.repository.NzbImportRepository
 import io.skjaere.debridav.repository.UsenetRepository
+import io.skjaere.debridav.usenet.NntpConfigurationProperties
 import io.skjaere.debridav.usenet.NzbImportService
 import io.skjaere.debridav.usenet.UsenetDownload
 import io.skjaere.debridav.usenet.UsenetDownloadStatus
@@ -46,14 +48,19 @@ class SabNzbdService(
     private val cachedContentService: DebridCachedContentService,
     private val fileService: DatabaseFileService,
     private val debridavConfigurationProperties: DebridavConfigurationProperties,
+    private val nntpConfigurationProperties: NntpConfigurationProperties,
     private val usenetRepository: UsenetRepository,
     private val usenetConversionService: ConversionService,
     private val categoryService: CategoryService,
     private val resourceLoader: ResourceLoader,
-    private val nzbImportService: NzbImportService?,
-    private val nzbImportRepository: NzbImportRepository?
+    private val nzbImportService: NzbImportService,
+    private val nzbImportRepository: NzbImportRepository
 ) {
     private val logger = LoggerFactory.getLogger(SabNzbdService::class.java)
+
+    private fun isEasynewsOnlySetup(): Boolean =
+        DebridProvider.EASYNEWS in debridavConfigurationProperties.debridClients
+                && nntpConfigurationProperties.pools.none { it.host.isNotBlank() }
 
     @Transactional
     suspend fun addNzbFile(request: SabnzbdApiRequest): UsenetDownload {
@@ -62,28 +69,27 @@ class SabNzbdService(
         val nzbBytes = multipartFile.bytes
         val hash = nzbBytes.inputStream().md5()
 
-        if (nzbImportService != null) {
-            val usenetDownload = createQueuedUsenetDownload(releaseName, hash, request.cat!!)
-            val importRecord = NzbImportRecord().apply {
-                usenetDownloadId = usenetDownload.id
-                name = releaseName
-                category = request.cat
-                status = NzbImportStatus.QUEUED
+        if (isEasynewsOnlySetup()) {
+            val debridFiles = cachedContentService.addContent(UsenetRelease(releaseName))
+            return if (debridFiles.isNotEmpty()) {
+                val savedDebridFiles = createDebridFilesFromDebridResponse(debridFiles, hash, releaseName)
+                createCachedUsenetDownload(releaseName, hash, request.cat!!, savedDebridFiles)
+            } else {
+                logger.debug("$releaseName is not cached in any available debrid services")
+                createFailedUsenetDownload(releaseName, hash, request.cat!!)
             }
-            val savedRecord = nzbImportRepository!!.save(importRecord)
-            nzbImportService.scheduleImport(nzbBytes, usenetDownload, savedRecord.id!!)
-            return usenetDownload
         }
 
-        val debridFiles = cachedContentService.addContent(UsenetRelease(releaseName))
-
-        return if (debridFiles.isNotEmpty()) {
-            val savedDebridFiles = createDebridFilesFromDebridResponse(debridFiles, hash, releaseName)
-            createCachedUsenetDownload(releaseName, hash, request.cat!!, savedDebridFiles)
-        } else {
-            logger.debug("$releaseName is not cached in any available debrid services")
-            createFailedUsenetDownload(releaseName, hash, request.cat!!)
+        val usenetDownload = createQueuedUsenetDownload(releaseName, hash, request.cat!!)
+        val importRecord = NzbImportRecord().apply {
+            usenetDownloadId = usenetDownload.id
+            name = releaseName
+            category = request.cat
+            status = NzbImportStatus.QUEUED
         }
+        val savedRecord = nzbImportRepository.save(importRecord)
+        nzbImportService.scheduleImport(nzbBytes, usenetDownload, savedRecord.id!!)
+        return usenetDownload
     }
 
     fun InputStream.md5(): String = this.use { inputStream ->
