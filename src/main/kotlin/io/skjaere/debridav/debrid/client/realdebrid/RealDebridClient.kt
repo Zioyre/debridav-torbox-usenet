@@ -333,8 +333,11 @@ class RealDebridClient(
                 SuccessfulUnrestrictLinkResponse(entity)
             }
         } else {
-            val responseBody = response.body<Map<String, String>>()
-            logger.warn("could not unrestrict link: $link because")
+            val responseBody = runCatching { response.body<Map<String, String>>() }.getOrDefault(emptyMap())
+            logger.warn(
+                "could not unrestrict link {}: HTTP {} error={} error_code={}",
+                link, response.status.value, responseBody["error"], responseBody["error_code"]
+            )
             ErrorUnrestrictLinkResponse(responseBody["error"])
         }
     }
