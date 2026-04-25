@@ -38,9 +38,12 @@ import org.apache.commons.codec.digest.DigestUtils
 import org.slf4j.LoggerFactory
 import org.springframework.core.convert.ConversionService
 import org.springframework.core.io.ResourceLoader
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.web.multipart.MultipartFile
 import java.io.InputStream
+
+private const val MAX_HISTORY_SLOTS = 500
 
 @Service
 @Suppress("LongParameterList")
@@ -102,10 +105,13 @@ class SabNzbdService(
             usenetRepository.deleteUsenetDownloadById(request.value!!.toLong())
             return SabNzbdHistoryDeleteResponse(true, listOf(request.value))
         } else {
+            // Sonarr/Radarr poll history but only need recent entries to match against
+            // their pending grabs. Cap at MAX_HISTORY_SLOTS (newest first) so the
+            // table doesn't OOM us when it grows over time.
+            val pageable = PageRequest.of(0, MAX_HISTORY_SLOTS)
             val slots = request.cat?.let {
-                usenetRepository
-                    .findByCategoryName(request.cat)
-            } ?: usenetRepository.findAll()
+                usenetRepository.findRecentByCategoryName(it, pageable)
+            } ?: usenetRepository.findRecent(pageable)
 
             val filteredSlots = slots
                 .filter { it.status?.isCompleted() == true }

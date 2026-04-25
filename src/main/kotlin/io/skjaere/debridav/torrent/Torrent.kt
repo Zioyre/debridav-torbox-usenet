@@ -9,11 +9,14 @@ import jakarta.persistence.FetchType
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
+import jakarta.persistence.Index
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.OneToMany
+import jakarta.persistence.Table
 import java.time.Instant
 
 @Entity
+@Table(indexes = [Index(name = "idx_torrent_category_id", columnList = "category_id")])
 open class Torrent {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)

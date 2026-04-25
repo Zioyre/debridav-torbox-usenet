@@ -29,7 +29,10 @@ import org.hibernate.annotations.Type
 @DiscriminatorColumn(name = "db_item_type", discriminatorType = DiscriminatorType.STRING)
 @Table(
     name = "db_item",
-    indexes = [Index(name = "directory_path", columnList = "path")],
+    indexes = [
+        Index(name = "directory_path", columnList = "path"),
+        Index(name = "idx_db_item_directory_id", columnList = "directory_id"),
+    ],
     uniqueConstraints = [UniqueConstraint(columnNames = arrayOf("directory_id", "name"))]
 )
 abstract class DbEntity {
@@ -73,7 +76,9 @@ open class DbDirectory : DbEntity() {
 
 @Entity
 open class RemotelyCachedEntity : DbEntity() {
-    @OneToOne(cascade = [CascadeType.ALL])
+    // Lifecycle cascades only — drop REFRESH and DETACH, which the audit flagged
+    // as risky for an exclusively-owned child like this one.
+    @OneToOne(cascade = [CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE])
     @JoinColumn(name = "debrid_file_contents_id")
     open var contents: DebridFileContents? = null
 
@@ -108,7 +113,10 @@ open class RemotelyCachedEntity : DbEntity() {
 
 @Entity
 open class LocalEntity : DbEntity() {
-    @OneToOne(fetch = FetchType.LAZY, cascade = [(CascadeType.ALL)])
+    @OneToOne(
+        fetch = FetchType.LAZY,
+        cascade = [CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE],
+    )
     @JoinColumn(name = "blob_id")
     open var blob: Blob? = null
 }

@@ -7,11 +7,6 @@
 spring:
   jpa:
     open-in-view: false
-    properties:
-      hibernate:
-        event:
-          merge:
-            entity_copy_observer: allow
   servlet:
     multipart:
       max-file-size: -1
