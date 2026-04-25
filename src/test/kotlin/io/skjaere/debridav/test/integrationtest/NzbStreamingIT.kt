@@ -80,7 +80,8 @@ class NzbStreamingIT {
         waitForCompletion(releaseName)
 
         // verify - GET the file via WebDAV and check content matches
-        val downloadedBytes = sardine.get("http://localhost:$randomServerPort/webdav/downloads/$releaseName/testfile.bin")
+        val downloadedBytes = sardine
+            .get("http://localhost:$randomServerPort/webdav/downloads/$releaseName/testfile.bin")
             .use { it.readBytes() }
 
         assertThat(

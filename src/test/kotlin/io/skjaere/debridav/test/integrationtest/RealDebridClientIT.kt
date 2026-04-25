@@ -213,7 +213,9 @@ class RealDebridClientIT {
         //finally
         realdebridTorrentRepository.deleteAll()
         realDebridDownloadRepository.deleteAll()
-        sardine.delete("http://localhost:${randomServerPort}/webdav/downloads/Vengeance.Valley.1951.DVDRip.x264.EAC3-SARTRE")
+        sardine.delete(
+            "http://localhost:${randomServerPort}/webdav/downloads/Vengeance.Valley.1951.DVDRip.x264.EAC3-SARTRE"
+        )
     }
 
     @Test
