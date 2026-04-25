@@ -76,7 +76,7 @@ class NzbStreamingRepairIT {
         for (releaseName in createdReleases) {
             @Suppress("TooGenericExceptionCaught")
             try {
-                sardine.delete("http://localhost:$randomServerPort/downloads/$releaseName")
+                sardine.delete("http://localhost:$randomServerPort/webdav/downloads/$releaseName")
             } catch (_: Exception) {
                 // directory may not exist if import failed
             }
@@ -140,7 +140,7 @@ class NzbStreamingRepairIT {
         // when - trigger streaming (WebDAV GET), which hits ArticleNotFoundException
         @Suppress("TooGenericExceptionCaught")
         try {
-            sardine.get("http://localhost:$randomServerPort/downloads/$releaseName/testfile.bin")
+            sardine.get("http://localhost:$randomServerPort/webdav/downloads/$releaseName/testfile.bin")
         } catch (_: Exception) {
             // the stream will fail since the article is missing — that's expected
         }

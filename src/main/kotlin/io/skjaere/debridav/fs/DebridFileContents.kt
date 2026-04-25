@@ -105,6 +105,7 @@ open class DebridCachedUsenetReleaseContent() : DebridFileContents() {
 open class NzbContents : DebridFileContents() {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "nzb_document_id")
+    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
     open var nzbDocument: NzbDocumentEntity? = null
 }
 

@@ -25,6 +25,10 @@ class TestContextInitializer : ApplicationContextInitializer<ConfigurableApplica
                 .withUsername("postgres")
                 .withPassword("postgres")
                 .withDatabaseName("debridav")
+                // Each cached Spring context holds a Hikari pool open; with ~12 IT
+                // contexts and the default max_connections=100, the suite hits
+                // "FATAL: sorry, too many clients already". 300 buys plenty of headroom.
+                .withCommand("postgres", "-c", "max_connections=300")
         val mockNntpServerContainer: MockNntpServerContainer = MockNntpServerContainer()
     }
 
