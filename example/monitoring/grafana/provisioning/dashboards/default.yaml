@@ -2,7 +2,7 @@ apiVersion: 1
 
 providers:
   - name: Default # A uniquely identifiable name for the provider
-    folder: Debridav # The folder where to place the dashboards
+    folder: debridav # The folder where to place the dashboards (must be lowercase — backend /api/v1/grafana/dashboards filters on folderTitle=="debridav")
     type: file
     options:
       path: /etc/grafana/provisioning/dashboards
