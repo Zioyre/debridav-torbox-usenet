@@ -105,15 +105,29 @@ NNTP is enabled implicitly whenever at least one pool has a host. Configure each
 
 Pools can also be managed live from the UI (Configuration → NNTP → Server Pools).
 
-### Health check & repair configuration
+## Health checking & repair
+
+Debrid links expire; hosters drop files; NZB segments age off news servers. DebriDav periodically
+re-verifies every torrent's debrid links and every NZB's article availability in the background,
+then routes anything that fails into a repair pipeline: blocklist the broken release in Sonarr /
+Radarr, trigger a re-search, and delete the virtual file if no replacement is found.
+
+Each check + repair runs as a PostgreSQL-backed queue (PGMQ), so retries and dead-lettering are
+durable across restarts. Results show up on the Health page of the UI (Queue / History tabs)
+and the Grafana dashboard.
 
 | Environment variable                 | Description                                                                                     | Default   |
 |--------------------------------------|-------------------------------------------------------------------------------------------------|-----------|
-| HEALTH-CHECK_REPAIR-ENABLED          | Enable automatic repair (blocklist + re-search via Sonarr/Radarr) of unhealthy items           | `true`    |
-| HEALTH-CHECK_NZB-INTERVAL            | How often to reverify a given NZB's segments (ISO-8601 duration)                                | `P7D`     |
-| HEALTH-CHECK_NZB-POLL-RATE           | How often to scan for NZBs needing a check                                                      | `PT5M`    |
-| HEALTH-CHECK_TORRENT-INTERVAL        | How often to reverify a given torrent's debrid links                                            | `P1D`     |
-| HEALTH-CHECK_TORRENT-POLL-RATE       | How often to scan for torrents needing a check                                                  | `PT5M`    |
+| HEALTH-CHECK_REPAIR-ENABLED          | Enable automatic repair (blocklist + re-search via Sonarr/Radarr) of unhealthy items.           | `true`    |
+| HEALTH-CHECK_NZB-INTERVAL            | How often to reverify a given NZB's segments (ISO-8601 duration).                               | `P7D`     |
+| HEALTH-CHECK_NZB-POLL-RATE           | How often to scan for NZBs needing a check.                                                     | `PT5M`    |
+| HEALTH-CHECK_TORRENT-INTERVAL        | How often to reverify a given torrent's debrid links.                                           | `P1D`     |
+| HEALTH-CHECK_TORRENT-POLL-RATE       | How often to scan for torrents needing a check.                                                 | `PT5M`    |
+
+Arr integration is required for repair: without a Sonarr or Radarr client wired up for the
+matching category, unhealthy items are deleted from the virtual filesystem rather than
+re-sourced. Leave `HEALTH-CHECK_REPAIR-ENABLED=false` if you want checks-only observability
+without any automated deletion.
 
 ## Rclone VFS cache invalidation
 
