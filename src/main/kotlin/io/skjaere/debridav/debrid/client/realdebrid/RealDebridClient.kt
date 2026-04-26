@@ -247,7 +247,10 @@ class RealDebridClient(
             }
         }
         if (!resp.status.isSuccess()) {
-            logger.error("error getting torrent info for id: $id: ${resp.status} ${resp.body<String>()}")
+            // Don't try to deserialize the error body as TorrentsInfo — kotlinx.serialization
+            // would throw a SerializationException with no useful message and the real HTTP
+            // failure would never reach the caller. Funnel through the standard exception path.
+            throwDebridProviderException(resp, "/torrents/info/$id")
         }
         resp.body<TorrentsInfo>()
     }
