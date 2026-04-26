@@ -248,12 +248,6 @@ bootstrap the defaults on first start.
 | DEBRIDAV_UI_GRAFANA_BASEURL   | Base URL of a reachable Grafana. When set, the Dashboard tab embeds every dashboard under Grafana's `debridav` folder. |         |
 | DEBRIDAV_UI_GRAFANA_APIKEY    | Optional Grafana API key if `/api/search` requires auth. Not needed for anonymous-viewer setups.                     |         |
 
-## Developing
-
-A docker compose file is provided in the dev directory, with Prowlarr and rclone defined. You can add a qBittorrent
-download client in prowlarr and point it to the ip obtained by running `ip addr show docker0` in order to reach your
-locally running DebriDav server.
-
 ## Disclaimer
 
 DebriDav is intended for use with legally obtained content only. The authors do not support or condone piracy.
