@@ -12,7 +12,6 @@ import io.ktor.http.isSuccess
 import io.skjaere.debridav.configuration.DebridavConfigurationProperties
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -60,7 +59,7 @@ class RcloneCacheInvalidator(
         Executors.newSingleThreadScheduledExecutor { r ->
             Thread(r, "rclone-cache-invalidator").apply { isDaemon = true }
         }
-    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val ioScope = CoroutineScope(SupervisorJob())
 
     @EventListener
     fun onChange(event: FileSystemChangedEvent) {

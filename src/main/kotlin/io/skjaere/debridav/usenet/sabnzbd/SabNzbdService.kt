@@ -27,8 +27,6 @@ import io.skjaere.debridav.usenet.sabnzbd.model.SabnzbdFullListResponse
 import io.skjaere.debridav.usenet.sabnzbd.model.SabnzbdHistory
 import io.skjaere.debridav.usenet.sabnzbd.model.SabnzbdHistoryResponse
 import jakarta.transaction.Transactional
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -127,34 +125,33 @@ class SabNzbdService(
     }
 
     @Transactional
-    suspend fun queue(request: SabnzbdApiRequest): SabNzbdQueueResponse = withContext(Dispatchers.IO) {
+    suspend fun queue(request: SabnzbdApiRequest): SabNzbdQueueResponse {
         if (request.name is String && request.name == "delete") {
             usenetRepository.findById(request.value!!.toLong()).get().let { usenetDownload ->
                 usenetRepository.markUsenetDownloadAsDeleted(usenetDownload)
             }
-            SabNzbdQueueDeleteResponse(true, listOf(request.value))
-        } else {
-            val queueSlots = emptyList<ListResponseDownloadSlot>()
-            val queue = Queue(
-                status = "Downloading",
-                speedLimit = "0",
-                speedLimitAbs = "0",
-                paused = false,
-                noofSlots = 0,
-                noofSlotsTotal = 0,
-                limit = 0,
-                start = 0,
-                timeLeft = "0:10:0",
-                speed = "1 M",
-                kbPerSec = "100.0",
-                size = "0",
-                sizeLeft = "0",
-                mb = "0",
-                mbLeft = "0",
-                slots = queueSlots
-            )
-            SabnzbdFullListResponse(queue)
+            return SabNzbdQueueDeleteResponse(true, listOf(request.value))
         }
+        val queueSlots = emptyList<ListResponseDownloadSlot>()
+        val queue = Queue(
+            status = "Downloading",
+            speedLimit = "0",
+            speedLimitAbs = "0",
+            paused = false,
+            noofSlots = 0,
+            noofSlotsTotal = 0,
+            limit = 0,
+            start = 0,
+            timeLeft = "0:10:0",
+            speed = "1 M",
+            kbPerSec = "100.0",
+            size = "0",
+            sizeLeft = "0",
+            mb = "0",
+            mbLeft = "0",
+            slots = queueSlots
+        )
+        return SabnzbdFullListResponse(queue)
     }
 
     fun config(): String {
@@ -244,19 +241,19 @@ class SabNzbdService(
         hash: String,
         category: String,
         createdFiles: List<RemotelyCachedEntity>
-    ): UsenetDownload = withContext(Dispatchers.IO) {
-        val category = categoryService.getOrCreateCategory(category)
+    ): UsenetDownload {
+        val resolvedCategory = categoryService.getOrCreateCategory(category)
         val usenetDownload = UsenetDownload()
         usenetDownload.status = UsenetDownloadStatus.COMPLETED
         usenetDownload.name = releaseName
         usenetDownload.hash = hash
-        usenetDownload.category = category
+        usenetDownload.category = resolvedCategory
         usenetDownload.storagePath =
             "${debridavConfigurationProperties.mountPath}${debridavConfigurationProperties.downloadPath}/$releaseName"
         usenetDownload.percentCompleted = 1.0
         usenetDownload.size = createdFiles.first().size
         usenetDownload.debridFiles.addAll(createdFiles)
 
-        usenetRepository.save(usenetDownload)
+        return usenetRepository.save(usenetDownload)
     }
 }

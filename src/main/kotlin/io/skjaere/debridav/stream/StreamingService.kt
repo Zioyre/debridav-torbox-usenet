@@ -13,7 +13,6 @@ import io.skjaere.debridav.fs.CachedFile
 import io.skjaere.debridav.fs.RemotelyCachedEntity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.channels.Channel
@@ -24,8 +23,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.io.EOFException
+import kotlinx.io.IOException
 import org.apache.catalina.connector.ClientAbortException
 import org.slf4j.LoggerFactory
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException
@@ -140,7 +139,7 @@ class StreamingService(
         is ClientErrorException -> StreamResult.CLIENT_ERROR
         is ClientAbortException -> StreamResult.OK
         is AsyncRequestNotUsableException -> StreamResult.OK
-        is kotlinx.io.IOException -> {
+        is IOException -> {
             logger.error("IOError occurred during streaming", e)
             StreamResult.IO_ERROR
         }
@@ -181,19 +180,17 @@ class StreamingService(
                 coroutineScope {
                     val bufferPool = createByteArrayPool(READ_AHEAD_CHUNKS + 1, DEFAULT_BUFFER_SIZE)
                     val chunkChannel = produceChunks(length, bufferPool, upstreamByteReadChannel)
-                    withContext(Dispatchers.IO) {
-                        chunkChannel.consumeEach { (buffer, bytesRead) ->
-                            outputStream.write(buffer, 0, bytesRead)
-                            onBytesTransferred(bytesRead)
-                            bufferPool.send(buffer)
-                        }
+                    chunkChannel.consumeEach { (buffer, bytesRead) ->
+                        outputStream.write(buffer, 0, bytesRead)
+                        onBytesTransferred(bytesRead)
+                        bufferPool.send(buffer)
                     }
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (_: ClientAbortException) {
             } catch (_: AsyncRequestNotUsableException) {
-            } catch (e: kotlinx.io.IOException) {
+            } catch (e: IOException) {
                 logger.warn("IO error reading from upstream HTTP stream during streaming", e)
                 throw ReadFromHttpStreamException("IO error reading from upstream HTTP stream", e)
             } catch (e: Exception) {
