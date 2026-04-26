@@ -1,2 +1,0 @@
-pg_largeobjects:
-  query: select sum(length(data)) from pg_largeobject
