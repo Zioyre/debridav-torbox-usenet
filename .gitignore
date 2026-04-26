@@ -2,3 +2,4 @@
 build/
 codecov*
 example_old/
+mcp-config.json
