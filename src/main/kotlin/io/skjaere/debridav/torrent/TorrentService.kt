@@ -66,16 +66,12 @@ class TorrentService(
         torrent.created = Instant.now()
         torrent.hash = hash.hash
         torrent.status = Status.LIVE
-        torrent.savePath =
-            "${debridavConfigurationProperties.downloadPath}/${torrent.name}"
-        torrent.files =
-            cachedFiles.map {
-                fileService.createDebridFile(
-                    "${debridavConfigurationProperties.downloadPath}/${torrent.name}/${it.originalPath}",
-                    getHashFromMagnet(magnet)!!.hash,
-                    it
-                )
-            }.toMutableList()
+        val torrentBasePath = "${debridavConfigurationProperties.downloadPath}/${torrent.name}"
+        torrent.savePath = torrentBasePath
+        torrent.files = fileService.createDebridFiles(
+            cachedFiles.map { "$torrentBasePath/${it.originalPath}" to it },
+            hash.hash,
+        ).toMutableList()
 
         logger.info("Saving ${torrent.files.count()} files")
         return torrentRepository.save(torrent)

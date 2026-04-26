@@ -12,6 +12,8 @@ import org.springframework.data.repository.CrudRepository
 interface DebridFileContentsRepository : CrudRepository<DbEntity, Long> {
     fun findByDirectoryAndName(directory: DbDirectory, name: String): DbEntity?
 
+    fun findAllByDirectoryInAndNameIn(directories: Collection<DbDirectory>, names: Collection<String>): List<DbEntity>
+
     @Query(
         "select * from db_item entity where entity.db_item_type='DbDirectory' AND entity.path = CAST(:path AS ltree)",
         nativeQuery = true

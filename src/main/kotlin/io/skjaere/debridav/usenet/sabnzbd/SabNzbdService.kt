@@ -191,14 +191,13 @@ class SabNzbdService(
         debridFiles: List<DebridFileContents>,
         hash: String,
         releaseName: String
-    ): List<RemotelyCachedEntity> =
-        debridFiles.map { file ->
-            fileService.createDebridFile(
-                "${debridavConfigurationProperties.downloadPath}/${releaseName}/${file.originalPath}",
-                hash,
-                file
-            )
-        }
+    ): List<RemotelyCachedEntity> {
+        val basePath = "${debridavConfigurationProperties.downloadPath}/$releaseName"
+        return fileService.createDebridFiles(
+            debridFiles.map { "$basePath/${it.originalPath}" to it },
+            hash,
+        )
+    }
 
 
     private suspend fun createQueuedUsenetDownload(

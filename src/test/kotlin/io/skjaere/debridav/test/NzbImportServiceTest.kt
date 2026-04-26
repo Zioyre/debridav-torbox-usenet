@@ -150,7 +150,7 @@ class NzbImportServiceTest {
         every { nzbDocumentRepository.save(any()) } returns savedDoc
 
         val debridFile = mockk<RemotelyCachedEntity>()
-        every { databaseFileService.createDebridFile(any(), any(), any()) } returns debridFile
+        every { databaseFileService.createDebridFiles(any(), any()) } returns listOf(debridFile)
 
         val savedSlot = slot<UsenetDownload>()
         every { usenetRepository.save(capture(savedSlot)) } answers { savedSlot.captured }
@@ -167,7 +167,7 @@ class NzbImportServiceTest {
         assertEquals(4000L, importSlot.captured.size)
         assertEquals("RAR", importSlot.captured.archiveType)
         verify(exactly = 1) { nzbDocumentRepository.save(any()) }
-        verify(exactly = 1) { databaseFileService.createDebridFile(any(), eq("abc123"), any()) }
+        verify(exactly = 1) { databaseFileService.createDebridFiles(any(), eq("abc123")) }
     }
 
     @Test
