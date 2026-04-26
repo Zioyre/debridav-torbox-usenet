@@ -16,11 +16,26 @@ protocol so that they can be mounted.
 ## Features
 
 - ☁️ **Stream from debrid providers** — Real Debrid, Premiumize, TorBox, and Easynews, with Plex/Jellyfin.
-- 📡 **Stream from usenet via NNTP** *(coming in 0.12.0)* — Import NZBs and stream directly from your usenet provider, no intermediate download required.
+- 📡 **Stream from usenet via NNTP** — Import NZBs and stream directly from your usenet provider with a pool of NNTP connections, no intermediate download required.
 - 🔀 **Multiple providers with fallback** — Enable multiple debrid providers concurrently with defined priorities. If content is not cached in the primary provider, DebriDav falls back to the next.
 - 🔗 **Arr integration** — Emulates the qBittorrent and SABnzbd APIs for seamless integration with Sonarr and Radarr.
 - 📁 **Virtual file management** — Sort content as you would regular files. Create directories, rename files, and move them around — no regular expressions needed. Files are exposed via WebDAV.
-- 🩺 **Health checking and repair** — Automatically detect unhealthy NZB imports and trigger re-searches via Sonarr/Radarr.
+- 🩺 **Health checking and repair** — Automatically detect unhealthy torrents and NZBs and trigger re-searches / blocklists via Sonarr/Radarr.
+- 🖥️ **Built-in dashboard UI** — React frontend bundled into the backend, with a file browser, config editor, queue/history views, and live log tailing.
+- 🔧 **Runtime configuration** — Most settings are editable at runtime via the UI / config API and persist to Postgres; no pod restart required.
+- 🔐 **JWT authentication** — Opt-in auth layer protecting the API, qBittorrent/SABnzbd emulation, actuator, and temporary stream tokens.
+- 📊 **Prometheus metrics + Grafana dashboards** — First-class observability for streams, health checks, PGMQ queues, and the NNTP connection pool.
+
+## Migrating from 0.11 to 1.0
+
+1.0 contains several breaking changes. If you are upgrading from 0.11.x, apply these in order:
+
+- **WebDAV moved under `/webdav/`**. Update every rclone mount, media-server, and WebDAV client URL from `http://host:8080/` to `http://host:8080/webdav/`.
+- **NNTP config reshape.** The flat `NNTP_HOST` / `NNTP_PORT` / `NNTP_USERNAME` / `NNTP_PASSWORD` / `NNTP_USETLS` / `NNTP_ENABLED` variables are gone. Use the pool-list form: `NNTP_POOLS_0_HOST`, `NNTP_POOLS_0_PORT`, `NNTP_POOLS_0_USERNAME`, `NNTP_POOLS_0_PASSWORD`, `NNTP_POOLS_0_USETLS`. NNTP is now implicitly enabled whenever a pool has a host; additional pools can be added at `NNTP_POOLS_1_*`, etc.
+- **Health-check/repair config consolidated** under `HEALTH-CHECK_*`. `NNTP_HEALTHCHECKINTERVAL` → `HEALTH-CHECK_NZB-INTERVAL`, `NNTP_HEALTHCHECKPOLLRATE` → `HEALTH-CHECK_NZB-POLL-RATE`, `DEBRIDAV_TORRENTHEALTHCHECKINTERVAL` → `HEALTH-CHECK_TORRENT-INTERVAL`, `REPAIR_ENABLED` → `HEALTH-CHECK_REPAIR-ENABLED`.
+- **Removed config keys** (silently ignored if left set): `DEBRIDAV_ROOTPATH`, `DEBRIDAV_ENABLEFILEIMPORTONSTARTUP`, `NNTP_FORWARDTHRESHOLDBYTES`, and the legacy chunk-cache knobs (`DEBRIDAV_CHUNKCACHINGGRACEPERIOD`, `DEBRIDAV_CHUNKCACHINGSIZETHRESHOLD`, `DEBRIDAV_CACHEMAXSIZE`).
+- **Database migrations apply automatically** via Flyway on first start; no manual action needed.
+- **Any `config_override` rows** you created via the config API under the old key names are orphaned — re-set them under the new names via the UI / config API.
 
 ## How does it work?
 
@@ -29,9 +44,10 @@ as download clients in the arrs.
 Once a magnet/nzb is sent to DebriDav it will check if it is cached in any of the available debrid providers and
 create file representations for the streamable files hosted at debrid providers.
 
-Note that DebriDav does not read the torrents added to your Real Debrid account, or your Premiumize cloud storage.
-Content you wish to be accessible through DebriDav must be added with the qBittorrent API. An feature to import
-these files to DebriDav may be added in the future.
+Note that content you wish to be accessible through DebriDav must be added with the qBittorrent API.
+DebriDav does have an opt-in Real-Debrid sync (`REAL-DEBRID_SYNCENABLED`, default on) that periodically
+pulls your account's existing torrents + downloads so they can be re-used on restart; Premiumize cloud
+storage is not browsed.
 
 ## Which debrid services are supported?
 
@@ -72,24 +88,39 @@ This feature includes:
 
 ### NNTP configuration
 
+NNTP is enabled implicitly whenever at least one pool has a host. Configure each pool by its index
+(`0`, `1`, …); lower-priority pools act as fill/fallback.
+
+| Environment variable                 | Description                                                                                     | Default             |
+|--------------------------------------|-------------------------------------------------------------------------------------------------|---------------------|
+| NNTP_POOLS_0_HOST                    | NNTP server hostname for pool 0 (required to enable NNTP)                                       |                     |
+| NNTP_POOLS_0_PORT                    | NNTP server port                                                                                | `563`               |
+| NNTP_POOLS_0_USERNAME                | NNTP server username                                                                            |                     |
+| NNTP_POOLS_0_PASSWORD                | NNTP server password                                                                            |                     |
+| NNTP_POOLS_0_USETLS                  | Use TLS for NNTP connections                                                                    | `true`              |
+| NNTP_POOLS_0_MAXCONNECTIONS          | Maximum connections in this pool                                                                | `8`                 |
+| NNTP_POOLS_0_PRIORITY                | Pool priority; pool with the lowest number is preferred                                         | `0`                 |
+| NNTP_CONCURRENCY                     | Number of concurrent article downloads per stream (shared across pools)                         | `4`                 |
+| NNTP_READAHEADSEGMENTS               | Number of segments to read ahead during streaming                                               | same as concurrency |
+
+Pools can also be managed live from the UI (Configuration → NNTP → Server Pools).
+
+### Health check & repair configuration
+
 | Environment variable                 | Description                                                                                     | Default   |
 |--------------------------------------|-------------------------------------------------------------------------------------------------|-----------|
-| NNTP_ENABLED                         | Enable NNTP/usenet support                                                                      | `false`   |
-| NNTP_HOST                            | NNTP server hostname                                                                            |           |
-| NNTP_PORT                            | NNTP server port                                                                                | `563`     |
-| NNTP_USERNAME                        | NNTP server username                                                                            |           |
-| NNTP_PASSWORD                        | NNTP server password                                                                            |           |
-| NNTP_USETLS                          | Use TLS for NNTP connections                                                                    | `true`    |
-| NNTP_CONCURRENCY                     | Number of concurrent article downloads per stream                                               | `4`       |
-| NNTP_MAXCONNECTIONS                  | Maximum number of NNTP connections in the pool                                                  | `8`       |
-| NNTP_READAHEADSEGMENTS               | Number of segments to read ahead during streaming                                               | same as concurrency |
-| NNTP_HEALTHCHECKINTERVAL             | How often to health-check imported NZBs (ISO-8601 duration)                                     | `P7D`     |
-| NNTP_HEALTHCHECKPOLLRATE             | How often to poll the health check queue (ISO-8601 duration)                                    | `PT5M`    |
+| HEALTH-CHECK_REPAIR-ENABLED          | Enable automatic repair (blocklist + re-search via Sonarr/Radarr) of unhealthy items           | `true`    |
+| HEALTH-CHECK_NZB-INTERVAL            | How often to reverify a given NZB's segments (ISO-8601 duration)                                | `P7D`     |
+| HEALTH-CHECK_NZB-POLL-RATE           | How often to scan for NZBs needing a check                                                      | `PT5M`    |
+| HEALTH-CHECK_TORRENT-INTERVAL        | How often to reverify a given torrent's debrid links                                            | `P1D`     |
+| HEALTH-CHECK_TORRENT-POLL-RATE       | How often to scan for torrents needing a check                                                  | `PT5M`    |
 
 ## Monitoring
 
-There is a docker compose file in /example/observability which includes some useful services for monitoring the DebriDav
-and associated services. See [OBSERVABILITY.md](example/monitoring/MONITORING.md)
+A `docker-compose.monitoring.yml` override in [`example/`](example/) layers Prometheus, Grafana, and
+supporting exporters on top of the base stack. When the Grafana base URL is configured, the Dashboard
+tab of the UI embeds every Grafana dashboard under the `debridav` folder. See
+[example/README.md](example/README.md) for details.
 
 ## How do I use it?
 
@@ -122,7 +153,7 @@ To build the project you will need a java 21 JDK.
 
 ### Running with Docker compose ( recommended )
 
-See [QUICKSTART](example/QUICKSTART.md)
+See [example/README.md](example/README.md).
 
 ### Running the jar
 
@@ -131,57 +162,91 @@ Alternatively `./gradlew bootRun` can be used.
 
 ### Running with docker
 
-`docker run ghcr.io/skjaere/debridav:v0`
+`docker run ghcr.io/skjaere/debridav:v1`
 
 ### Build docker image
 
 To build the docker image run `./gradlew jibDockerBuild`
 
 You will want to use rclone to mount DebriDav to a directory which can be shared among docker containers.
-[docker-compose.yaml](example/docker-compose.yaml) in examples/ can be used as a starting point.
+[docker-compose.yml](example/docker-compose.yml) in `example/` can be used as a starting point.
 
 ## Configuration
 
-The following values can be defined as environment variables.
+Most settings are also editable at runtime from the UI's Configuration page; these env vars
+bootstrap the defaults on first start.
 
-| NAME                               | Explanation                                                                                                                                                                                                          | Default          |
-|------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------|
-| DEBRIDAV_ROOTPATH                  | The root path of DebriDav. DebriDav will store configuration data, databases, files under this directory. When running as docker this directory refers to the path within the docker container.                      | ./debridav-files |
-| DEBRIDAV_DOWNLOADPATH              | The path under `DEBRIDAV_ROOTPATH` where downloaded files will be placed.                                                                                                                                            | /downloads       |
-| DEBRIDAV_DEBRIDCLIENTS             | A comma separated list of enabled debrid providers. Allowed values are `real_debrid`, `premiumize`, `easynews` and `torbox`. Note that the order determines the priority in which they are used.                     |                  |
-| DEBRIDAV_DB_HOST                   | The host of the PostgresSQL database server                                                                                                                                                                          | localhost        |
-| DEBRIDAV_DB_PORT                   | The port of the PostgresSQL database server                                                                                                                                                                          | 5432             |
-| DEBRIDAV_DB_DATABASENAME           | The name of the database to use within the PostgresSQL server                                                                                                                                                        | debridav         |
-| DEBRIDAV_DB_USERNAME               | The username to use when connecting the PostgresSQL server                                                                                                                                                           | debridav         |
-| DEBRIDAV_DB_PASSWORD               | The password to use when connecting the PostgresSQL server                                                                                                                                                           | debridav         |
-| DEBRIDAV_ENABLEFILEIMPORTONSTARTUP | Enables importing content from the filesystem to the database.                                                                                                                                                       | debridav         |
-| DEBRIDAV_DEFAULTCATEGORIES         | A comma separated list of categories to create on startup                                                                                                                                                            |                  |
-| DEBRIDAV_LOCALENTITYMAXSIZEMB      | The maximum allowed size in MB for locally stored files. Useful to prevent accidentally large files in the database. Set to 0 for no limit                                                                           | 50               |
-| DEBRIDAV_CHUNKCACHINGGRACEPERIOD   | The amount of time to keep chunks in the cache as a duration string ( 2m, 4h, 2d etc)                                                                                                                                | 4h               |
-| DEBRIDAV_CHUNKCACHINGSIZETHRESHOLD | The maximum chunk size to cache in bytes.                                                                                                                                                                            | 5120000 ( 5Mb )  |
-| DEBRIDAV_CACHEMAXSIZE              | The maximum size of the cache in gigabytes.                                                                                                                                                                          | 2                |
-| PREMIUMIZE_APIKEY                  | The api key for Premiumize                                                                                                                                                                                           |                  |
-| REAL-DEBRID_APIKEY                 | The api key for Real Debrid                                                                                                                                                                                          |                  |
-| REAL-DEBRID_SYNCENABLED            | If set to true, DebriDav will periodically poll Real-Debrid's API for torrents and downloads for re-use                                                                                                              | true             |
-| REAL-DEBRID_SYNCPOLLRATE           | The rate at which DebriDav will sync downloads and torrents ( if enabled by DEBRID_SYNCENABLED ) as a [ISO8601 time string](https://en.wikipedia.org/wiki/ISO_8601#Durations).                                       | PT4H ( 4 hours ) |
-| EASYNEWS_USERNAME                  | The Easynews username                                                                                                                                                                                                |                  |
-| EASYNEWS_PASSWORD                  | The Easynews password                                                                                                                                                                                                |                  |
-| EASYNEWS_ENABLEDFORTORRENTS        | If set to true, DebriDav will search for releases in Easynews matching the torrent name of torrents added via the qBittorrent API                                                                                    | true             |
-| EASYNEWS_RATELIMITWINDOWDURATION   | The size of the time window to use for rate limiting.                                                                                                                                                                | 15 seconds       |
-| EASYNEWS_ALLOWEDREQUESTSINWINDOW   | The number of requests allowed in the time window. eg: EASYNEWS_RATELIMITWINDOWDURATION=10s and  EASYNEWS_ALLOWEDREQUESTSINWINDOW=3 will allow 3 requests per 10 seconds before forcing subsequent requests to wait. | 10               |
-| EASYNEWS_CONNECTTIMEOUT            | The amount of time in milliseconds to wait while establishing a connection to Easynews' servers.                                                                                                                     | 20000            |
-| EASYNEWS_SOCKETTIMEOUT             | The amount of time in milliseconds to wait between receiving bytes from Easynews' servers.                                                                                                                           | 5000             |
-| TORBOX_APIKEY                      | The api key for TorBox                                                                                                                                                                                               |                  |
-| SONARR_INTEGRATIONENABLED          | Enable integration of Sonarr.                                                                                                                                                                                        | true             |
-| SONARR_HOST                        | The host of Sonarr                                                                                                                                                                                                   | sonarr-debridav  |
-| SONARR_PORT                        | The port of Sonarr                                                                                                                                                                                                   | 8989             |
-| SONARR_API_KEY                     | The API key for Sonarr                                                                                                                                                                                               |                  |
-| SONARR_CATEGORY                    | The qBittorrent cateogy Sonarr uses                                                                                                                                                                                  | tv-sonarr        |
-| RADARR_INTEGRATIONENABLED          | Enable integration of Radarr. See description of SONARR_INTEGRATION_ENABLED                                                                                                                                          | true             |
-| RADARR_HOST                        | The host of Radarr                                                                                                                                                                                                   | radarr-debridav  |
-| RADARR_PORT                        | The port of Radarr                                                                                                                                                                                                   | 7878             |
-| RADARR_API_KEY                     | The API key for Radarr                                                                                                                                                                                               |                  |
-| RADARR_CATEGORY                    | The qBittorrent cateogy Radarr uses                                                                                                                                                                                  | radarr           |
+### Core
+
+| NAME                               | Explanation                                                                                                                                                                                         | Default    |
+|------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------|
+| DEBRIDAV_DOWNLOADPATH              | Path reported to Sonarr/Radarr as the "download complete" directory.                                                                                                                                | /downloads |
+| DEBRIDAV_MOUNTPATH                 | Path reported to Sonarr/Radarr where the WebDAV mount is visible to them.                                                                                                                           | /data      |
+| DEBRIDAV_DEBRIDCLIENTS             | Comma-separated list of enabled debrid providers. Allowed values: `real_debrid`, `premiumize`, `easynews`, `torbox`. Order determines fallback priority.                                             |            |
+| DEBRIDAV_DEFAULTCATEGORIES         | Comma-separated list of qBittorrent categories to create on startup.                                                                                                                                |            |
+| DEBRIDAV_LOCALENTITYMAXSIZEMB      | Maximum size in MB for locally-stored (non-debrid) files. Prevents accidentally-large BLOBs in the database. `0` = unlimited.                                                                        | 50         |
+
+### Database
+
+| NAME                     | Explanation                                     | Default   |
+|--------------------------|-------------------------------------------------|-----------|
+| DEBRIDAV_DB_HOST         | Postgres host                                   | localhost |
+| DEBRIDAV_DB_PORT         | Postgres port                                   | 5432      |
+| DEBRIDAV_DB_DATABASENAME | Database name                                   | debridav  |
+| DEBRIDAV_DB_USERNAME     | Database username                               | debridav  |
+| DEBRIDAV_DB_PASSWORD     | Database password                               | debridav  |
+
+### Authentication
+
+| NAME                             | Explanation                                                                                                                                                  | Default |
+|----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
+| DEBRIDAV_AUTH_ENABLED            | Protect the UI + API with JWT login.                                                                                                                          | `false` |
+| DEBRIDAV_AUTH_JWT-SECRET         | Signing key for JWTs. Must be ≥ 32 bytes. If blank, a random key is generated per process (tokens won't survive restarts). `openssl rand -base64 48`.         |         |
+| DEBRIDAV_AUTH_TOKEN-EXPIRATION-HOURS | UI session token lifetime.                                                                                                                                | 24      |
+| DEBRIDAV_AUTH_PROTECT-QBITTORRENT-API | Require auth on the qBittorrent emulation endpoints (turn off for Sonarr/Radarr local-network use).                                                    | `false` |
+| DEBRIDAV_AUTH_PROTECT-SABNZBD-API | Require auth on the SABnzbd emulation endpoints.                                                                                                           | `false` |
+| DEBRIDAV_AUTH_PROTECT-ACTUATOR   | Require auth on `/actuator/*`.                                                                                                                               | `false` |
+| DEBRIDAV_WEBDAV-USERNAME         | Basic-auth username for WebDAV clients (rclone, media servers). WebDAV auth is enabled if both username and password are set.                                |         |
+| DEBRIDAV_WEBDAV-PASSWORD         | Basic-auth password for WebDAV clients.                                                                                                                      |         |
+
+### Debrid providers
+
+| NAME                               | Explanation                                                                                                                                                                                                         | Default    |
+|------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------|
+| PREMIUMIZE_APIKEY                  | Premiumize API key.                                                                                                                                                                                                 |            |
+| REAL-DEBRID_APIKEY                 | Real-Debrid API key.                                                                                                                                                                                                 |            |
+| REAL-DEBRID_SYNCENABLED            | Periodically pull existing torrents + downloads from RD for re-use.                                                                                                                                                  | `true`     |
+| REAL-DEBRID_SYNCPOLLRATE           | RD sync poll rate ([ISO-8601 duration](https://en.wikipedia.org/wiki/ISO_8601#Durations)).                                                                                                                           | PT24H      |
+| TORBOX_APIKEY                      | TorBox API key.                                                                                                                                                                                                     |            |
+| EASYNEWS_USERNAME                  | Easynews username.                                                                                                                                                                                                  |            |
+| EASYNEWS_PASSWORD                  | Easynews password.                                                                                                                                                                                                  |            |
+| EASYNEWS_ENABLEDFORTORRENTS        | Search Easynews for releases matching torrents added via the qBittorrent API.                                                                                                                                       | `true`     |
+| EASYNEWS_RATELIMITWINDOWDURATION   | Rate-limit time window.                                                                                                                                                                                             | 15s        |
+| EASYNEWS_ALLOWEDREQUESTSINWINDOW   | Requests allowed per window.                                                                                                                                                                                        | 10         |
+| EASYNEWS_CONNECTTIMEOUT            | Easynews connect timeout (ms).                                                                                                                                                                                      | 20000      |
+| EASYNEWS_SOCKETTIMEOUT             | Easynews socket read timeout (ms).                                                                                                                                                                                  | 5000       |
+
+### Sonarr / Radarr
+
+| NAME                      | Explanation                                           | Default   |
+|---------------------------|-------------------------------------------------------|-----------|
+| SONARR_INTEGRATIONENABLED | Enable Sonarr integration (blocklist + re-search).     | `false`   |
+| SONARR_HOST               | Sonarr host.                                          | localhost |
+| SONARR_PORT               | Sonarr port.                                          | 8989      |
+| SONARR_APIKEY             | Sonarr API key.                                       |           |
+| SONARR_CATEGORY           | qBittorrent category mapped to Sonarr.                | tv-sonarr |
+| RADARR_INTEGRATIONENABLED | Enable Radarr integration.                            | `false`   |
+| RADARR_HOST               | Radarr host.                                          | localhost |
+| RADARR_PORT               | Radarr port.                                          | 7878      |
+| RADARR_APIKEY             | Radarr API key.                                       |           |
+| RADARR_CATEGORY           | qBittorrent category mapped to Radarr.                | radarr    |
+
+### UI
+
+| NAME                          | Explanation                                                                                                           | Default |
+|-------------------------------|-----------------------------------------------------------------------------------------------------------------------|---------|
+| DEBRIDAV_UI_GRAFANA_BASEURL   | Base URL of a reachable Grafana. When set, the Dashboard tab embeds every dashboard under Grafana's `debridav` folder. |         |
+| DEBRIDAV_UI_GRAFANA_APIKEY    | Optional Grafana API key if `/api/search` requires auth. Not needed for anonymous-viewer setups.                     |         |
 
 ## Developing
 
