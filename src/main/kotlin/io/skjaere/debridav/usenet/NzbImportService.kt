@@ -166,21 +166,20 @@ class NzbImportService(
                     val savedDocument = nzbDocumentRepository.save(documentEntity)
                     usenetDownload.nzbDocument = savedDocument
 
-                    usenetDownload.debridFiles = savedDocument.streamableFiles.map { sf ->
-                        val nzbContents = NzbContents().apply {
-                            nzbDocument = savedDocument
-                            originalPath = sf.path
-                            size = sf.totalSize
-                            modified = Instant.now().toEpochMilli()
-                        }
-                        val path = "${debridavConfigurationProperties.downloadPath}" +
-                                "/${usenetDownload.name}/${sf.path}"
-                        databaseFileService.createDebridFile(
-                            path,
-                            usenetDownload.hash!!,
-                            nzbContents
-                        )
-                    }.toMutableList()
+                    val basePath = "${debridavConfigurationProperties.downloadPath}/${usenetDownload.name}"
+                    val downloadHash = usenetDownload.hash!!
+                    usenetDownload.debridFiles = databaseFileService.createDebridFiles(
+                        savedDocument.streamableFiles.map { sf ->
+                            val nzbContents = NzbContents().apply {
+                                nzbDocument = savedDocument
+                                originalPath = sf.path
+                                size = sf.totalSize
+                                modified = Instant.now().toEpochMilli()
+                            }
+                            "$basePath/${sf.path}" to nzbContents
+                        },
+                        downloadHash,
+                    ).toMutableList()
 
                     usenetDownload.status = UsenetDownloadStatus.COMPLETED
                     importRecord.status = NzbImportStatus.COMPLETED

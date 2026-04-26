@@ -7,6 +7,15 @@
 spring:
   jpa:
     open-in-view: false
+    properties:
+      hibernate:
+        # Batch the per-file inserts done when adding a torrent or NZB so the
+        # JSONB DebridFileContents column is round-tripped to Postgres in one
+        # statement instead of N. order_inserts/updates groups the same-table
+        # writes contiguously, which is what makes batching actually trigger.
+        jdbc.batch_size: 50
+        order_inserts: true
+        order_updates: true
   servlet:
     multipart:
       max-file-size: -1

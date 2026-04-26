@@ -53,9 +53,58 @@ class DatabaseFileService(
     ): RemotelyCachedEntity {
         val directory = getOrCreateDirectory(path.substringBeforeLast("/"))
         val name = path.substringAfterLast("/")
+        val entity = buildDebridFileEntity(path, name, hash, directory, debridFileContents)
+        emitChange(parentOf(path))
+        return entity
+    }
 
+    /**
+     * Batch variant of [createDebridFile]. Pre-resolves the unique parent directories
+     * once instead of N times AND prefetches existing entities at the (directory, name)
+     * pairs in a single query, so the per-file existence check doesn't trigger an
+     * auto-flush on every iteration (which would defeat hibernate.jdbc.batch_size).
+     */
+    @Transactional
+    fun createDebridFiles(
+        files: List<Pair<String, DebridFileContents>>,
+        hash: String,
+    ): List<RemotelyCachedEntity> {
+        val parentByPath = files.associate { (path, _) -> path to path.substringBeforeLast("/") }
+        val dirCache = parentByPath.values.toSet().associateWith { getOrCreateDirectory(it) }
+
+        // One query for all potential collisions; filter to exact (dir, name) hits.
+        val targets = files.map { (path, _) ->
+            dirCache.getValue(parentByPath.getValue(path)) to path.substringAfterLast("/")
+        }
+        val existingByKey = if (targets.isEmpty()) {
+            emptyMap()
+        } else {
+            debridFileRepository.findAllByDirectoryInAndNameIn(
+                targets.map { it.first }.distinct(),
+                targets.map { it.second }.distinct(),
+            ).associateBy { it.directory!! to it.name!! }
+        }
+
+        val emittedParents = mutableSetOf<String>()
+        return files.map { (path, contents) ->
+            val name = path.substringAfterLast("/")
+            val directory = dirCache.getValue(parentByPath.getValue(path))
+            val entity = buildDebridFileEntity(path, name, hash, directory, contents, existingByKey[directory to name])
+            emittedParents.add(parentOf(path))
+            entity
+        }.also { emitChanges(emittedParents) }
+    }
+
+    private fun buildDebridFileEntity(
+        path: String,
+        name: String,
+        hash: String,
+        directory: DbDirectory,
+        contents: DebridFileContents,
+        existing: DbEntity? = debridFileRepository.findByDirectoryAndName(directory, name),
+    ): RemotelyCachedEntity {
         // Overwrite file if it exists
-        debridFileRepository.findByDirectoryAndName(directory, name)?.let {
+        existing?.let {
             it as? RemotelyCachedEntity ?: error("type ${it.javaClass.simpleName} exists at path $path")
             when (it.contents) {
                 is DebridCachedTorrentContent -> debridFileRepository.unlinkFileFromTorrents(it)
@@ -65,16 +114,14 @@ class DatabaseFileService(
             debridFileRepository.deleteDbEntityByHash(it.hash!!) // TODO: why doesn't debridFileRepository.delete() work?
         }
         val fileEntity = RemotelyCachedEntity()
-        fileEntity.name = path.substringAfterLast("/")
+        fileEntity.name = name
         fileEntity.lastModified = Instant.now().toEpochMilli()
-        fileEntity.size = debridFileContents.size
-        fileEntity.mimeType = debridFileContents.mimeType
+        fileEntity.size = contents.size
+        fileEntity.mimeType = contents.mimeType
         fileEntity.directory = directory
-        fileEntity.contents = debridFileContents
+        fileEntity.contents = contents
         fileEntity.hash = hash
-
         logger.debug("Creating ${directory.path}/${fileEntity.name}")
-        emitChange(parentOf(path))
         return fileEntity
     }
 
