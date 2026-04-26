@@ -171,6 +171,19 @@ To build the docker image run `./gradlew jibDockerBuild`
 You will want to use rclone to mount DebriDav to a directory which can be shared among docker containers.
 [docker-compose.yml](example/docker-compose.yml) in `example/` can be used as a starting point.
 
+### Accessing the UI
+
+Once DebriDav is running, point a browser at its HTTP port (default `8080`) to reach the dashboard —
+`http://<host>:8080/`. The UI covers live streams, imports, health checks, repair history, the file
+browser, runtime config editor, and a log tailer.
+
+If `DEBRIDAV_AUTH_ENABLED=true`, you'll be prompted to log in with `DEBRIDAV_WEBDAV-USERNAME` /
+`DEBRIDAV_WEBDAV-PASSWORD` (the same credentials also guard the WebDAV endpoint). With auth off
+(the default), the UI is unauthenticated — only expose it to trusted networks.
+
+WebDAV itself is served under `/webdav/` (e.g. `http://<host>:8080/webdav/`), separate from the
+UI. Point your rclone mount or media server at that path.
+
 ## Configuration
 
 Most settings are also editable at runtime from the UI's Configuration page; these env vars
