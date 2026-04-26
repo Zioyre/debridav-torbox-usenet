@@ -28,14 +28,14 @@ protocol so that they can be mounted.
 
 ## Migrating from 0.11 to 1.0
 
-1.0 contains several breaking changes. If you are upgrading from 0.11.x, apply these in order:
+1.0 contains a few breaking changes. If you are upgrading from 0.11.x, apply these in order:
 
 - **WebDAV moved under `/webdav/`**. Update every rclone mount, media-server, and WebDAV client URL from `http://host:8080/` to `http://host:8080/webdav/`.
-- **NNTP config reshape.** The flat `NNTP_HOST` / `NNTP_PORT` / `NNTP_USERNAME` / `NNTP_PASSWORD` / `NNTP_USETLS` / `NNTP_ENABLED` variables are gone. Use the pool-list form: `NNTP_POOLS_0_HOST`, `NNTP_POOLS_0_PORT`, `NNTP_POOLS_0_USERNAME`, `NNTP_POOLS_0_PASSWORD`, `NNTP_POOLS_0_USETLS`. NNTP is now implicitly enabled whenever a pool has a host; additional pools can be added at `NNTP_POOLS_1_*`, etc.
-- **Health-check/repair config consolidated** under `HEALTH-CHECK_*`. `NNTP_HEALTHCHECKINTERVAL` → `HEALTH-CHECK_NZB-INTERVAL`, `NNTP_HEALTHCHECKPOLLRATE` → `HEALTH-CHECK_NZB-POLL-RATE`, `DEBRIDAV_TORRENTHEALTHCHECKINTERVAL` → `HEALTH-CHECK_TORRENT-INTERVAL`, `REPAIR_ENABLED` → `HEALTH-CHECK_REPAIR-ENABLED`.
-- **Removed config keys** (silently ignored if left set): `DEBRIDAV_ROOTPATH`, `DEBRIDAV_ENABLEFILEIMPORTONSTARTUP`, `NNTP_FORWARDTHRESHOLDBYTES`, and the legacy chunk-cache knobs (`DEBRIDAV_CHUNKCACHINGGRACEPERIOD`, `DEBRIDAV_CHUNKCACHINGSIZETHRESHOLD`, `DEBRIDAV_CACHEMAXSIZE`).
+- **Removed config keys** (silently ignored if left set): `DEBRIDAV_ROOTPATH`, `DEBRIDAV_ENABLEFILEIMPORTONSTARTUP`, and the legacy chunk-cache knobs (`DEBRIDAV_CHUNKCACHINGGRACEPERIOD`, `DEBRIDAV_CHUNKCACHINGSIZETHRESHOLD`, `DEBRIDAV_CACHEMAXSIZE`).
 - **Database migrations apply automatically** via Flyway on first start; no manual action needed.
-- **Any `config_override` rows** you created via the config API under the old key names are orphaned — re-set them under the new names via the UI / config API.
+- **Any `config_override` rows** you created via the config API under one of the now-removed keys are orphaned and can be deleted from the UI / config API.
+
+The NNTP / Usenet streaming and Health-check + repair pipelines are new features in 1.0 — see their respective sections below — and don't require migrating existing config.
 
 ## How does it work?
 
