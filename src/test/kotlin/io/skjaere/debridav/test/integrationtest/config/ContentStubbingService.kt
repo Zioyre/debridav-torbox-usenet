@@ -2,6 +2,7 @@ package io.skjaere.debridav.test.integrationtest.config
 
 import org.mockserver.client.MockServerClient
 import org.mockserver.matchers.Times
+import org.mockserver.model.Delay
 import org.mockserver.model.Header
 import org.mockserver.model.HttpRequest
 import org.mockserver.model.HttpResponse
@@ -63,7 +64,7 @@ class ContentStubbingService(@Value("\${mockserver.port}") val port: Int) {
             //Times.exactly(1)
         ).respond(
             HttpResponse.response()
-                .withDelay(org.mockserver.model.Delay.milliseconds(500))
+                .withDelay(Delay.milliseconds(500))
                 .withStatusCode(206)
                 .withBody(oneHundredKilobytes)
                 .withHeader(Header("content-range", "bytes $startByte-$endByte/${endByte + 1}"))

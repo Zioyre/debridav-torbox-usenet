@@ -7,6 +7,7 @@ import io.skjaere.debridav.health.HealthMetrics
 import io.skjaere.debridav.health.HealthMetrics.HealthType
 import io.skjaere.debridav.health.RepairAction
 import io.skjaere.debridav.health.RepairOutcomeService
+import io.skjaere.debridav.torrent.Torrent
 import io.skjaere.debridav.torrent.TorrentRepository
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
@@ -45,7 +46,7 @@ class TorrentHealthRepairHandler(
         }
     }
 
-    private fun executeRepair(msgId: Long, torrent: io.skjaere.debridav.torrent.Torrent) {
+    private fun executeRepair(msgId: Long, torrent: Torrent) {
         val category = torrent.category?.name
         val hash = torrent.hash
 

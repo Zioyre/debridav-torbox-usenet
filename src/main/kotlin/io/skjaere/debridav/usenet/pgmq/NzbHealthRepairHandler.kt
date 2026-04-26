@@ -9,6 +9,7 @@ import io.skjaere.debridav.health.RepairAction
 import io.skjaere.debridav.health.RepairOutcomeService
 import io.skjaere.debridav.repository.NzbDocumentRepository
 import io.skjaere.debridav.repository.UsenetRepository
+import io.skjaere.debridav.usenet.nzb.NzbDocumentEntity
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -50,7 +51,7 @@ class NzbHealthRepairHandler(
 
     private fun executeRepair(
         msgId: Long,
-        nzbDocument: io.skjaere.debridav.usenet.nzb.NzbDocumentEntity
+        nzbDocument: NzbDocumentEntity
     ): RepairAction {
         val category = nzbDocument.category
         val name = nzbDocument.name
