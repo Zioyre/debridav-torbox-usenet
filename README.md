@@ -115,6 +115,24 @@ Pools can also be managed live from the UI (Configuration → NNTP → Server Po
 | HEALTH-CHECK_TORRENT-INTERVAL        | How often to reverify a given torrent's debrid links                                            | `P1D`     |
 | HEALTH-CHECK_TORRENT-POLL-RATE       | How often to scan for torrents needing a check                                                  | `PT5M`    |
 
+## Rclone VFS cache invalidation
+
+If you mount DebriDav via rclone and set rclone's `--dir-cache-time` to something comfortably long
+(say, 120s) for snappy directory listings, DebriDav can push cache invalidations directly to
+rclone whenever files are created, moved, or deleted — so changes show up in the mount
+immediately instead of waiting for the dir-cache to expire.
+
+| NAME                                    | Explanation                                                                                   | Default |
+|-----------------------------------------|-----------------------------------------------------------------------------------------------|---------|
+| DEBRIDAV_RCLONECACHEINVALIDATIONENABLED | Enable pushing VFS cache invalidations to rclone.                                              | `false` |
+| DEBRIDAV_RCLONE_RC-URL                  | Rclone remote-control endpoint (e.g. `http://rclone:5572`). Blank disables the integration.   |         |
+| DEBRIDAV_RCLONE_RC-USER                 | Basic-auth user for rclone RC, if configured.                                                 |         |
+| DEBRIDAV_RCLONE_RC-PASSWORD             | Basic-auth password for rclone RC, if configured.                                             |         |
+
+Rclone needs `--rc --rc-addr :5572 --rc-user ... --rc-pass ...` (or equivalent) on its command
+line for the RC server to be reachable. The docker-compose example in `example/` already wires
+this up.
+
 ## Monitoring
 
 A `docker-compose.monitoring.yml` override in [`example/`](example/) layers Prometheus, Grafana, and
