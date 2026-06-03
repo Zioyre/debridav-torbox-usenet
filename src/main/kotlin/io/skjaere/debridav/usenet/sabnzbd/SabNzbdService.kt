@@ -4,6 +4,7 @@ import io.skjaere.debridav.category.CategoryService
 import io.skjaere.debridav.configuration.DebridavConfigurationProperties
 import io.skjaere.debridav.debrid.DebridCachedContentService
 import io.skjaere.debridav.debrid.UsenetRelease
+import io.skjaere.debridav.debrid.client.torbox.TorBoxUsenetService
 import io.skjaere.debridav.fs.DatabaseFileService
 import io.skjaere.debridav.fs.DebridFileContents
 import io.skjaere.debridav.fs.RemotelyCachedEntity
@@ -47,7 +48,8 @@ class SabNzbdService(
     private val usenetConversionService: ConversionService,
     private val categoryService: CategoryService,
     private val resourceLoader: ResourceLoader,
-    private val nzbImportService: NzbImportService?
+    private val nzbImportService: NzbImportService?,
+    private val torBoxUsenetService: TorBoxUsenetService?
 ) {
     private val logger = LoggerFactory.getLogger(SabNzbdService::class.java)
 
@@ -62,6 +64,11 @@ class SabNzbdService(
             val usenetDownload = createQueuedUsenetDownload(releaseName, hash, request.cat!!)
             nzbImportService.scheduleImport(nzbBytes, usenetDownload)
             return usenetDownload
+        }
+
+        if (torBoxUsenetService != null) {
+            logger.info("Sending NZB '$releaseName' to TorBox usenet")
+            return torBoxUsenetService.submitNzb(nzbBytes, releaseName, hash, request.cat!!)
         }
 
         val debridFiles = cachedContentService.addContent(UsenetRelease(releaseName))
