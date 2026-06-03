@@ -41,7 +41,6 @@ import org.springframework.stereotype.Service
 import java.time.Duration
 import java.time.Instant
 
-@Suppress("MaxLineLength")
 @Service
 @ConditionalOnExpression("#{'\${debridav.debrid-clients}'.contains('torbox')}")
 class TorBoxUsenetService(
@@ -60,9 +59,9 @@ class TorBoxUsenetService(
         private const val RATE_LIMIT_WINDOW_SECONDS = 59L
         private const val RATE_LIMIT_REQUESTS_IN_WINDOW = 60
         private const val RATE_LIMIT_TIMEOUT_SECONDS = 5L
-        private const val USER_AGENT = "DebriDav/0.12.0-torbox-usenet (https://github.com/Zioyre/debridav-torbox-usenet)"
-        private const val POLL_INTERVAL_MS = 5000L
-        private const val POLL_TIMEOUT_MINUTES = 30L
+        private const val USER_AGENT = "DebriDav/0.12-torbox-usenet"
+        private const val POLL_INTERVAL_MS = 10_000L
+        private const val POLL_TIMEOUT_MINUTES = 60L
     }
 
     init {
@@ -75,10 +74,6 @@ class TorBoxUsenetService(
         rateLimiter = rateLimiterRegistry.rateLimiter("torbox-usenet")
     }
 
-    /**
-     * Upload an NZB to TorBox's usenet API and start background polling.
-     * Returns immediately with a QUEUED UsenetDownload.
-     */
     suspend fun submitNzb(
         nzbBytes: ByteArray,
         releaseName: String,
@@ -105,7 +100,6 @@ class TorBoxUsenetService(
         nzbBytes: ByteArray,
         releaseName: String
     ) {
-        // Upload NZB to TorBox
         val torboxId = rateLimiter.executeSuspendFunction {
             createUsenetDownload(nzbBytes, releaseName)
         }
@@ -117,10 +111,10 @@ class TorBoxUsenetService(
             return
         }
 
+        logger.info("TorBox usenet download created: id=$torboxId, release='$releaseName'")
         usenetDownload.status = UsenetDownloadStatus.DOWNLOADING
         usenetRepository.save(usenetDownload)
 
-        // Poll until complete
         val usenetItem = pollUntilComplete(torboxId, releaseName)
 
         if (usenetItem == null) {
@@ -130,10 +124,9 @@ class TorBoxUsenetService(
             return
         }
 
-        // Create file entries
         val files = usenetItem.files ?: emptyList()
         if (files.isEmpty()) {
-            logger.warn("TorBox usenet download '$releaseName' completed but has no files")
+            logger.warn("TorBox usenet download '$releaseName' complete but has no files")
             usenetDownload.status = UsenetDownloadStatus.FAILED
             usenetRepository.save(usenetDownload)
             return
@@ -143,12 +136,7 @@ class TorBoxUsenetService(
 
         val debridFiles = withContext(Dispatchers.IO) {
             files.map { file ->
-                createDebridFileFromUsenetFile(
-                    file,
-                    torboxId,
-                    releaseName,
-                    usenetDownload.hash!!
-                )
+                createDebridFileFromUsenetFile(file, torboxId, releaseName, usenetDownload.hash!!)
             }
         }.toMutableList()
 
@@ -161,7 +149,7 @@ class TorBoxUsenetService(
 
     private suspend fun createUsenetDownload(nzbBytes: ByteArray, releaseName: String): Long? {
         val response: HttpResponse = torboxHttpClient.submitFormWithBinaryData(
-            url = "${getBaseUrl()}/api/usenet/createusenetdownload",
+            url = "${getBaseUrl()}/api/usenet/asynccreateusenetdownload",
             formData = formData {
                 append("file", nzbBytes, io.ktor.http.Headers.build {
                     append(HttpHeaders.ContentType, "application/x-nzb")
@@ -176,25 +164,22 @@ class TorBoxUsenetService(
                 userAgent(USER_AGENT)
             }
             timeout {
-                requestTimeoutMillis = torBoxConfiguration.requestTimeoutMillis
-                socketTimeoutMillis = torBoxConfiguration.socketTimeoutMillis
+                requestTimeoutMillis = 120_000
+                socketTimeoutMillis = 120_000
             }
         }
 
         return if (response.status.isSuccess()) {
             val body = response.body<CreateUsenetDownloadResponse>()
-            logger.debug("TorBox create usenet response: success=${body.success}, id=${body.data?.usenetDownloadId}")
+            logger.debug("TorBox async create usenet response: success=${body.success}, id=${body.data?.usenetDownloadId}")
             body.data?.usenetDownloadId
         } else {
-            logger.error("TorBox usenet creation failed: ${response.status}")
+            logger.error("TorBox usenet creation failed: status=${response.status}")
             null
         }
     }
 
-    private suspend fun pollUntilComplete(
-        torboxId: Long,
-        releaseName: String
-    ): UsenetListItem? {
+    private suspend fun pollUntilComplete(torboxId: Long, releaseName: String): UsenetListItem? {
         val deadline = System.currentTimeMillis() + (POLL_TIMEOUT_MINUTES * 60 * 1000)
 
         while (System.currentTimeMillis() < deadline) {
@@ -205,24 +190,23 @@ class TorBoxUsenetService(
             }
 
             if (item == null) {
-                logger.warn("TorBox usenet download $torboxId not found yet for '$releaseName'")
+                logger.debug("TorBox usenet download $torboxId not found yet for '$releaseName'")
                 continue
             }
 
-            val status = item.status
-            logger.debug("TorBox usenet $torboxId ('$releaseName') status: $status")
+            val state = item.downloadState
+            logger.debug("TorBox usenet $torboxId ('$releaseName') state: $state")
 
-            when (status) {
-                "completed", "cached" -> return item
+            when (state) {
+                "cached", "completed" -> return item
                 "failed" -> {
                     logger.error("TorBox usenet download $torboxId ('$releaseName') failed")
                     return null
                 }
-                // "downloading", "queued", "processing" — keep polling
             }
         }
 
-        logger.error("TorBox usenet download $torboxId ('$releaseName') timed out after ${POLL_TIMEOUT_MINUTES}min")
+        logger.error("TorBox usenet download $torboxId timed out after ${POLL_TIMEOUT_MINUTES}min")
         return null
     }
 
@@ -242,7 +226,8 @@ class TorBoxUsenetService(
         }
 
         return if (response.status.isSuccess()) {
-            response.body<UsenetListResponse>().data
+            val listResponse = response.body<UsenetListResponse>()
+            listResponse.data?.firstOrNull()
         } else {
             logger.warn("TorBox mylist returned ${response.status} for usenet $usenetId")
             null
@@ -273,7 +258,7 @@ class TorBoxUsenetService(
         )
     }
 
-    private fun getDownloadLink(usenetId: Long, fileId: String): String {
+    private fun getDownloadLink(usenetId: Long, fileId: Int): String {
         return "${getBaseUrl()}/api/usenet/requestdl" +
                 "?token=${torBoxConfiguration.apiKey}" +
                 "&usenet_id=$usenetId" +
