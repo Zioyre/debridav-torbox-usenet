@@ -172,10 +172,11 @@ jib {
         }
     }
     to {
-        image = "ghcr.io/skjaere/debridav"
+        image = "ghcr.io/zioyre/debridav-torbox-usenet"
         auth {
-            username = "skjaere"
+            username = "zioyre"
             password = System.getenv("GHCR_TOKEN")
         }
+        tags = setOf("latest")
     }
 }
