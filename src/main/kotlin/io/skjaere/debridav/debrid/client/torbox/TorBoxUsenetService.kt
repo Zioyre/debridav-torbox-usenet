@@ -16,18 +16,15 @@ import io.ktor.client.request.headers
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
-import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.http.userAgent
-import io.ktor.utils.io.core.toByteArray
-import io.skjaere.debridav.category.CategoryService
 import io.skjaere.debridav.configuration.DebridavConfigurationProperties
 import io.skjaere.debridav.debrid.client.torbox.model.usenet.CreateUsenetDownloadResponse
 import io.skjaere.debridav.debrid.client.torbox.model.usenet.UsenetListItem
 import io.skjaere.debridav.debrid.client.torbox.model.usenet.UsenetListItemFile
 import io.skjaere.debridav.debrid.client.torbox.model.usenet.UsenetListResponse
 import io.skjaere.debridav.fs.DatabaseFileService
-import io.skjaere.debridav.fs.DebridFileContents
+import io.skjaere.debridav.fs.DebridCachedUsenetReleaseContent
 import io.skjaere.debridav.fs.RemotelyCachedEntity
 import io.skjaere.debridav.repository.UsenetRepository
 import io.skjaere.debridav.usenet.UsenetDownload
@@ -44,8 +41,9 @@ import org.springframework.stereotype.Service
 import java.time.Duration
 import java.time.Instant
 
+@Suppress("MaxLineLength")
 @Service
-@ConditionalOnExpression("""#{'\${debridav.debrid-clients}'.contains('torbox')}""")
+@ConditionalOnExpression("#{'\${debridav.debrid-clients}'.contains('torbox')}")
 class TorBoxUsenetService(
     private val torboxHttpClient: HttpClient,
     private val torBoxConfiguration: TorBoxConfigurationProperties,
@@ -59,12 +57,12 @@ class TorBoxUsenetService(
     private val rateLimiter: RateLimiter
 
     companion object {
-        const val RATE_LIMIT_WINDOW_SECONDS = 59L
-        const val RATE_LIMIT_REQUESTS_IN_WINDOW = 60
-        const val RATE_LIMIT_TIMEOUT_SECONDS = 5L
-        const val USER_AGENT = "DebriDav/0.12.0-torbox-usenet (https://github.com/Zioyre/debridav-torbox-usenet)"
-        const val POLL_INTERVAL_MS = 5000L
-        const val POLL_TIMEOUT_MINUTES = 30L
+        private const val RATE_LIMIT_WINDOW_SECONDS = 59L
+        private const val RATE_LIMIT_REQUESTS_IN_WINDOW = 60
+        private const val RATE_LIMIT_TIMEOUT_SECONDS = 5L
+        private const val USER_AGENT = "DebriDav/0.12.0-torbox-usenet (https://github.com/Zioyre/debridav-torbox-usenet)"
+        private const val POLL_INTERVAL_MS = 5000L
+        private const val POLL_TIMEOUT_MINUTES = 30L
     }
 
     init {
@@ -81,7 +79,12 @@ class TorBoxUsenetService(
      * Upload an NZB to TorBox's usenet API and start background polling.
      * Returns immediately with a QUEUED UsenetDownload.
      */
-    suspend fun submitNzb(nzbBytes: ByteArray, releaseName: String, hash: String, categoryName: String): UsenetDownload {
+    suspend fun submitNzb(
+        nzbBytes: ByteArray,
+        releaseName: String,
+        hash: String,
+        categoryName: String
+    ): UsenetDownload {
         val usenetDownload = createQueuedUsenetDownload(releaseName, hash, categoryName)
 
         scope.launch {
@@ -160,7 +163,7 @@ class TorBoxUsenetService(
         val response: HttpResponse = torboxHttpClient.submitFormWithBinaryData(
             url = "${getBaseUrl()}/api/usenet/createusenetdownload",
             formData = formData {
-                append("file", nzbBytes, Headers.build {
+                append("file", nzbBytes, io.ktor.http.Headers.build {
                     append(HttpHeaders.ContentType, "application/x-nzb")
                     append(HttpHeaders.ContentDisposition, "filename=\"${releaseName}.nzb\"")
                 })
@@ -178,13 +181,13 @@ class TorBoxUsenetService(
             }
         }
 
-        if (response.status.isSuccess()) {
+        return if (response.status.isSuccess()) {
             val body = response.body<CreateUsenetDownloadResponse>()
             logger.debug("TorBox create usenet response: success=${body.success}, id=${body.data?.usenetDownloadId}")
-            return body.data?.usenetDownloadId
+            body.data?.usenetDownloadId
         } else {
             logger.error("TorBox usenet creation failed: ${response.status}")
-            return null
+            null
         }
     }
 
@@ -215,7 +218,7 @@ class TorBoxUsenetService(
                     logger.error("TorBox usenet download $torboxId ('$releaseName') failed")
                     return null
                 }
-                // "downloading", "queued", "processing", etc. — keep polling
+                // "downloading", "queued", "processing" — keep polling
             }
         }
 
@@ -254,12 +257,14 @@ class TorBoxUsenetService(
     ): RemotelyCachedEntity = withContext(Dispatchers.IO) {
         val downloadLink = getDownloadLink(usenetId, file.id)
 
-        val contents = DebridFileContents().apply {
-            originalPath = file.name
-            size = file.size
-            modified = Instant.now().toEpochMilli()
-            mimeType = file.mimeType ?: "application/octet-stream"
-        }
+        val contents = DebridCachedUsenetReleaseContent(
+            originalPath = file.name,
+            size = file.size,
+            modified = Instant.now().toEpochMilli(),
+            releaseName = releaseName,
+            mimeType = file.mimeType ?: "application/octet-stream",
+            debridLinks = mutableListOf()
+        )
 
         fileService.createDebridFile(
             "${debridavConfigurationProperties.downloadPath}/$releaseName/${file.name}",
