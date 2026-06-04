@@ -18,8 +18,10 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.isSuccess
 import io.ktor.http.userAgent
+import io.skjaere.debridav.category.CategoryService
 import io.skjaere.debridav.configuration.DebridavConfigurationProperties
 import io.skjaere.debridav.debrid.client.torbox.model.usenet.CreateUsenetDownloadResponse
+import io.skjaere.debridav.debrid.client.torbox.model.usenet.CreatedUsenetDownload
 import io.skjaere.debridav.debrid.client.torbox.model.usenet.UsenetListItem
 import io.skjaere.debridav.debrid.client.torbox.model.usenet.UsenetListItemFile
 import io.skjaere.debridav.debrid.client.torbox.model.usenet.UsenetListResponse
@@ -49,6 +51,7 @@ class TorBoxUsenetService(
     private val debridavConfigurationProperties: DebridavConfigurationProperties,
     private val usenetRepository: UsenetRepository,
     private val fileService: DatabaseFileService,
+    private val categoryService: CategoryService,
     rateLimiterRegistry: RateLimiterRegistry
 ) {
     private val logger = LoggerFactory.getLogger(TorBoxUsenetService::class.java)
@@ -100,28 +103,28 @@ class TorBoxUsenetService(
         nzbBytes: ByteArray,
         releaseName: String
     ) {
-        // Upload NZB via async endpoint (returns immediately, no ID)
-        val uploaded = rateLimiter.executeSuspendFunction {
-            uploadNzbAsync(nzbBytes, releaseName)
+        // Upload NZB via sync endpoint (returns download ID)
+        val created: CreatedUsenetDownload? = rateLimiter.executeSuspendFunction {
+            uploadNzb(nzbBytes, releaseName)
         }
 
-        if (!uploaded) {
-            logger.error("TorBox async usenet upload failed for '$releaseName'")
+        if (created == null) {
+            logger.error("TorBox usenet upload failed for '$releaseName'")
             usenetDownload.status = UsenetDownloadStatus.FAILED
             usenetRepository.save(usenetDownload)
             return
         }
 
-        logger.info("TorBox usenet upload accepted for '$releaseName', polling by hash...")
+        val usenetId = created.usenetDownloadId
+        logger.info("TorBox usenet upload accepted for '$releaseName' (id=$usenetId), polling...")
         usenetDownload.status = UsenetDownloadStatus.DOWNLOADING
         usenetRepository.save(usenetDownload)
 
-        // Poll mylist and find by hash
-        val nzbHash = usenetDownload.hash ?: ""
-        val usenetItem = pollByHash(nzbHash, releaseName)
+        // Poll mylist by download ID
+        val usenetItem = pollById(usenetId, releaseName)
 
         if (usenetItem == null) {
-            logger.error("TorBox usenet polling timed out for '$releaseName' (hash=$nzbHash)")
+            logger.error("TorBox usenet polling timed out for '$releaseName' (id=$usenetId)")
             usenetDownload.status = UsenetDownloadStatus.FAILED
             usenetRepository.save(usenetDownload)
             return
@@ -150,9 +153,9 @@ class TorBoxUsenetService(
         usenetRepository.save(usenetDownload)
     }
 
-    private suspend fun uploadNzbAsync(nzbBytes: ByteArray, releaseName: String): Boolean {
+    private suspend fun uploadNzb(nzbBytes: ByteArray, releaseName: String): CreatedUsenetDownload? {
         val response: HttpResponse = torboxHttpClient.submitFormWithBinaryData(
-            url = "${getBaseUrl()}/api/usenet/asynccreateusenetdownload",
+            url = "${getBaseUrl()}/api/usenet/createusenetdownload",
             formData = formData {
                 append("file", nzbBytes, io.ktor.http.Headers.build {
                     append(HttpHeaders.ContentType, "application/x-nzb")
@@ -166,33 +169,38 @@ class TorBoxUsenetService(
                 userAgent(USER_AGENT)
             }
             timeout {
-                requestTimeoutMillis = 120_000
-                socketTimeoutMillis = 120_000
+                requestTimeoutMillis = 60_000
+                socketTimeoutMillis = 60_000
             }
         }
 
         return if (response.status.isSuccess()) {
             val body = response.body<CreateUsenetDownloadResponse>()
-            logger.debug("TorBox async upload response: success=${body.success}")
-            body.success
+            if (body.success && body.data != null) {
+                logger.debug("TorBox upload response: id=${body.data.usenetDownloadId}")
+                body.data
+            } else {
+                logger.error("TorBox upload failed: error=${body.error}")
+                null
+            }
         } else {
-            logger.error("TorBox async upload failed: status=${response.status}")
-            false
+            logger.error("TorBox upload failed: status=${response.status}")
+            null
         }
     }
 
-    private suspend fun pollByHash(nzbHash: String, releaseName: String): UsenetListItem? {
+    private suspend fun pollById(usenetId: Long, releaseName: String): UsenetListItem? {
         val deadline = System.currentTimeMillis() + (POLL_TIMEOUT_MINUTES * 60 * 1000)
 
         while (System.currentTimeMillis() < deadline) {
             delay(POLL_INTERVAL_MS)
 
             val item = rateLimiter.executeSuspendFunction {
-                findUsenetDownloadByHash(nzbHash)
+                findUsenetDownloadById(usenetId)
             }
 
             if (item == null) {
-                logger.debug("TorBox usenet download with hash $nzbHash not found yet for '$releaseName'")
+                logger.debug("TorBox usenet download id=$usenetId not found yet for '$releaseName'")
                 continue
             }
 
@@ -208,6 +216,10 @@ class TorBoxUsenetService(
                     logger.error("TorBox usenet download '$releaseName' failed")
                     return null
                 }
+                "downloading" -> {
+                    logger.debug("TorBox usenet '$releaseName' downloading...")
+                    continue
+                }
             }
         }
 
@@ -215,7 +227,7 @@ class TorBoxUsenetService(
         return null
     }
 
-    private suspend fun findUsenetDownloadByHash(nzbHash: String): UsenetListItem? {
+    private suspend fun findUsenetDownloadById(usenetId: Long): UsenetListItem? {
         val response: HttpResponse = torboxHttpClient.get(
             "${getBaseUrl()}/api/usenet/mylist"
         ) {
@@ -232,7 +244,7 @@ class TorBoxUsenetService(
 
         return if (response.status.isSuccess()) {
             val listResponse = response.body<UsenetListResponse>()
-            listResponse.data?.find { it.hash == nzbHash }
+            listResponse.data?.find { it.id == usenetId }
         } else {
             logger.warn("TorBox mylist returned ${response.status}")
             null
@@ -276,10 +288,12 @@ class TorBoxUsenetService(
         hash: String,
         categoryName: String
     ): UsenetDownload = withContext(Dispatchers.IO) {
+        val category = categoryService.getOrCreateCategory(categoryName)
         val usenetDownload = UsenetDownload()
         usenetDownload.status = UsenetDownloadStatus.QUEUED
         usenetDownload.name = releaseName
         usenetDownload.hash = hash
+        usenetDownload.category = category
         usenetDownload.storagePath =
             "${debridavConfigurationProperties.mountPath}${debridavConfigurationProperties.downloadPath}/$releaseName"
         usenetDownload.percentCompleted = 0.0

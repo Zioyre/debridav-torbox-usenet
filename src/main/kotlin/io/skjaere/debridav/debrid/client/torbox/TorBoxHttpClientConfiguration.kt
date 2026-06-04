@@ -1,7 +1,7 @@
 package io.skjaere.debridav.debrid.client.torbox
 
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.apache5.Apache5
 import io.ktor.client.plugins.HttpSend
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.HttpTimeout
@@ -29,7 +29,7 @@ class TorBoxHttpClientConfiguration {
     @Bean
     @ConditionalOnExpression("#{'\${debridav.debrid-clients}'.contains('torbox')}")
     fun torboxHttpClient(): HttpClient {
-        val client = HttpClient(CIO) {
+        val client = HttpClient(Apache5) {
             install(ContentNegotiation) {
                 json(
                     Json {

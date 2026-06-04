@@ -14,5 +14,6 @@ data class CreateUsenetDownloadResponse(
 @Serializable
 data class CreatedUsenetDownload(
     @SerialName("usenetdownload_id") val usenetDownloadId: Long,
-    val name: String? = null
+    val name: String? = null,
+    val hash: String? = null
 )
