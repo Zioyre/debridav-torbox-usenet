@@ -20,11 +20,13 @@ import io.ktor.http.isSuccess
 import io.ktor.http.userAgent
 import io.skjaere.debridav.category.CategoryService
 import io.skjaere.debridav.configuration.DebridavConfigurationProperties
+import io.skjaere.debridav.debrid.DebridProvider
 import io.skjaere.debridav.debrid.client.torbox.model.usenet.CreateUsenetDownloadResponse
 import io.skjaere.debridav.debrid.client.torbox.model.usenet.CreatedUsenetDownload
 import io.skjaere.debridav.debrid.client.torbox.model.usenet.UsenetListItem
 import io.skjaere.debridav.debrid.client.torbox.model.usenet.UsenetListItemFile
 import io.skjaere.debridav.debrid.client.torbox.model.usenet.UsenetListResponse
+import io.skjaere.debridav.fs.CachedFile
 import io.skjaere.debridav.fs.DatabaseFileService
 import io.skjaere.debridav.fs.DebridCachedUsenetReleaseContent
 import io.skjaere.debridav.fs.RemotelyCachedEntity
@@ -303,4 +305,43 @@ class TorBoxUsenetService(
     }
 
     private fun getBaseUrl(): String = "${torBoxConfiguration.baseUrl}/${torBoxConfiguration.version}"
+
+    /**
+     * Resubmit an NZB for re-caching purposes. Uploads the NZB bytes, polls for completion,
+     * and returns the completed files as CachedFile entries with download links.
+     * Returns null if upload or polling fails.
+     */
+    suspend fun resubmitNzb(nzbBytes: ByteArray, releaseName: String): List<CachedFile>? {
+        val created: CreatedUsenetDownload? = rateLimiter.executeSuspendFunction {
+            uploadNzb(nzbBytes, releaseName)
+        }
+
+        if (created == null) {
+            logger.error("TorBox usenet re-upload failed for '$releaseName'")
+            return null
+        }
+
+        val usenetId = created.usenetDownloadId
+        logger.info("TorBox usenet re-upload accepted for '$releaseName' (id=$usenetId), polling...")
+
+        val item = pollById(usenetId, releaseName) ?: return null
+
+        val files = item.files ?: return null
+        if (files.isEmpty()) return null
+
+        return files.map { file ->
+            CachedFile(
+                path = file.name,
+                size = file.size,
+                mimeType = file.mimeType ?: "application/octet-stream",
+                link = getDownloadLink(usenetId, file.id),
+                params = mapOf(
+                    "usenet_id" to usenetId.toString(),
+                    "file_id" to file.id.toString()
+                ),
+                lastChecked = Instant.now().toEpochMilli(),
+                provider = DebridProvider.TORBOX
+            )
+        }
+    }
 }
