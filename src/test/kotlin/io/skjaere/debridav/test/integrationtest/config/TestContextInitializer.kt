@@ -59,6 +59,8 @@ class TestContextInitializer : ApplicationContextInitializer<ConfigurableApplica
             "spring.datasource.username=postgres",
             "spring.datasource.password=postgres",
             "easynews.api-base-url=http://localhost:$port/easynews",
+            "torbox.base-url=http://localhost:$port/torbox",
+            "torbox.api-key=test-torbox-api-key",
             "nntp.host=${mockNntpServerContainer.nntpHost}",
             "nntp.port=${mockNntpServerContainer.nntpPort}",
             "nntp.use-tls=false"

@@ -109,9 +109,12 @@ class ReCacheService(
 
         logger.info("Re-caching usenet release: $releaseName")
 
+        val usenetService = torBoxUsenetService
+            ?: return ReCacheResult(entity.id!!, "failed", "TorBox usenet service not configured")
+
         return try {
-            val freshFiles = torBoxUsenetService?.resubmitNzb(nzbBytes, releaseName)
-                ?: return ReCacheResult(entity.id!!, "failed", "TorBox usenet service not configured")
+            val freshFiles = usenetService.resubmitNzb(nzbBytes, releaseName)
+                ?: return ReCacheResult(entity.id!!, "failed", "TorBox usenet re-submit failed — upload or polling error")
 
             if (freshFiles.isEmpty()) {
                 return ReCacheResult(entity.id!!, "recaching", "Re-submitted, waiting for TorBox to complete download")

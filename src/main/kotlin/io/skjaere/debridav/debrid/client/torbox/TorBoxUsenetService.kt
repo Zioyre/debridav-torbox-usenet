@@ -193,9 +193,13 @@ class TorBoxUsenetService(
 
     private suspend fun pollById(usenetId: Long, releaseName: String): UsenetListItem? {
         val deadline = System.currentTimeMillis() + (POLL_TIMEOUT_MINUTES * 60 * 1000)
+        var firstPoll = true
 
         while (System.currentTimeMillis() < deadline) {
-            delay(POLL_INTERVAL_MS)
+            if (!firstPoll) {
+                delay(POLL_INTERVAL_MS)
+            }
+            firstPoll = false
 
             val item = rateLimiter.executeSuspendFunction {
                 findUsenetDownloadById(usenetId)
@@ -309,7 +313,8 @@ class TorBoxUsenetService(
     /**
      * Resubmit an NZB for re-caching purposes. Uploads the NZB bytes, polls for completion,
      * and returns the completed files as CachedFile entries with download links.
-     * Returns null if upload or polling fails.
+     * Returns an empty list if the download is still in progress (files not available yet),
+     * or null if upload or polling fails.
      */
     suspend fun resubmitNzb(nzbBytes: ByteArray, releaseName: String): List<CachedFile>? {
         val created: CreatedUsenetDownload? = rateLimiter.executeSuspendFunction {
@@ -327,7 +332,7 @@ class TorBoxUsenetService(
         val item = pollById(usenetId, releaseName) ?: return null
 
         val files = item.files ?: return null
-        if (files.isEmpty()) return null
+        if (files.isEmpty()) return emptyList()  // download still in progress, no files yet
 
         return files.map { file ->
             CachedFile(
