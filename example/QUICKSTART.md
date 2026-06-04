@@ -25,6 +25,8 @@ Typically you need to change two values:
 - If using Real Debrid, set the `REAL-DEBRID_API-KEY` property to your real debrid API key, obtained at
   `https://real-debrid.com/apitoken`
 - If using EasyNews set `EASYNEWS_USERNAME` and `EASYNEWS_PASSWORD` to your EasyNews username and password respectively.
+- If using TorBox set `TORBOX_API-KEY` to your TorBox API key, obtained from `https://torbox.app/settings`.
+  TorBox supports both torrents and usenet — NZB files sent via SABnzbd will be uploaded to TorBox's usenet endpoint.
 - Save when done.
 
 ### Addtional configuration options

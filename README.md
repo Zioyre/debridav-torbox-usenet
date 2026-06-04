@@ -16,11 +16,12 @@ protocol so that they can be mounted.
 ## Features
 
 - ☁️ **Stream from debrid providers** — Real Debrid, Premiumize, TorBox, and Easynews, with Plex/Jellyfin.
-- 📡 **Stream from usenet via NNTP** *(coming in 0.12.0)* — Import NZBs and stream directly from your usenet provider, no intermediate download required.
+- 📡 **Stream from usenet via TorBox** — Import NZBs and have TorBox download them on their infrastructure, providing instant streaming links. Also supports direct NNTP streaming from your own usenet provider.
 - 🔀 **Multiple providers with fallback** — Enable multiple debrid providers concurrently with defined priorities. If content is not cached in the primary provider, DebriDav falls back to the next.
 - 🔗 **Arr integration** — Emulates the qBittorrent and SABnzbd APIs for seamless integration with Sonarr and Radarr.
 - 📁 **Virtual file management** — Sort content as you would regular files. Create directories, rename files, and move them around — no regular expressions needed. Files are exposed via WebDAV.
 - 🩺 **Health checking and repair** — Automatically detect unhealthy NZB imports and trigger re-searches via Sonarr/Radarr.
+- ♻️ **Automatic re-caching** — When debrid links expire or go dead, DebriDav automatically re-submits content to TorBox (torrent magnets and NZB uploads) instead of deleting it. Includes a cooldown to prevent abuse.
 
 ## How does it work?
 
@@ -56,13 +57,22 @@ and Easynews.
 
 ### Note about TorBox
 
-TorBox's usenet features are not yet supported.
+TorBox is fully supported for both torrents and usenet. NZB files sent via the SABnzbd API are uploaded to TorBox's usenet
+endpoint, where TorBox downloads and caches the content on their infrastructure. DebriDav polls for completion and
+creates virtual file representations of the resulting streamable files, exactly like it does for torrent-backed content.
+NZB bytes are stored in the database so that expired links can be re-cached automatically (see the re-caching feature).
 
 ## NNTP / Usenet streaming
 
-DebriDav can stream content directly from a usenet provider over NNTP, without requiring a debrid service.
-When enabled, NZB files sent via the SABnzbd API are imported and their contents are made available as
-streamable virtual files through WebDAV, just like debrid-backed content.
+DebriDav supports streaming usenet content through two paths:
+
+1. **TorBox usenet** (default when TorBox is enabled) — NZB files are uploaded to TorBox, which downloads and caches
+   the content on their infrastructure. DebriDav then creates virtual files pointing to TorBox's streaming links.
+   This works without requiring your own usenet provider.
+
+2. **Direct NNTP streaming** — DebriDav can also stream content directly from a usenet provider over NNTP, without
+   requiring a debrid service. When enabled, NZB files sent via the SABnzbd API are imported and their contents are
+   made available as streamable virtual files through WebDAV, just like debrid-backed content.
 
 This feature includes:
 - NZB import and metadata extraction (archive contents, file sizes, etc.)
@@ -89,7 +99,7 @@ This feature includes:
 ## Monitoring
 
 There is a docker compose file in /example/observability which includes some useful services for monitoring the DebriDav
-and associated services. See [OBSERVABILITY.md](example/monitoring/MONITORING.md)
+and associated services. See [MONITORING.md](example/monitoring/MONITORING.md)
 
 ## How do I use it?
 
@@ -131,7 +141,7 @@ Alternatively `./gradlew bootRun` can be used.
 
 ### Running with docker
 
-`docker run ghcr.io/skjaere/debridav:v0`
+`docker run ghcr.io/zioyre/debridav-torbox-usenet:latest`
 
 ### Build docker image
 
@@ -172,6 +182,7 @@ The following values can be defined as environment variables.
 | EASYNEWS_CONNECTTIMEOUT            | The amount of time in milliseconds to wait while establishing a connection to Easynews' servers.                                                                                                                     | 20000            |
 | EASYNEWS_SOCKETTIMEOUT             | The amount of time in milliseconds to wait between receiving bytes from Easynews' servers.                                                                                                                           | 5000             |
 | TORBOX_APIKEY                      | The api key for TorBox                                                                                                                                                                                               |                  |
+| DEBRIDAV_DELETENONWORKINGFILES     | If set to false, non-working files will not be deleted (re-cache will be attempted instead for TorBox-backed content). Set to true to revert to old deletion behavior.                                                | false            |
 | SONARR_INTEGRATIONENABLED          | Enable integration of Sonarr.                                                                                                                                                                                        | true             |
 | SONARR_HOST                        | The host of Sonarr                                                                                                                                                                                                   | sonarr-debridav  |
 | SONARR_PORT                        | The port of Sonarr                                                                                                                                                                                                   | 8989             |

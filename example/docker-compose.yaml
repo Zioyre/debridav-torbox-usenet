@@ -1,6 +1,6 @@
 services:
   debridav:
-    image: ghcr.io/skjaere/debridav:v0.11.0
+    image: ghcr.io/zioyre/debridav-torbox-usenet:latest
     container_name: debridav
     restart: unless-stopped
     environment:

@@ -1,5 +1,26 @@
 # Changelog
 
+## [Unreleased] — TorBox Usenet Fork
+
+### Features
+
+* add TorBox usenet API integration — NZBs sent via SABnzbd are uploaded to TorBox and polled for completion ([db233a3](https://github.com/Zioyre/debridav-torbox-usenet/commit/db233a3))
+* add ReCacheService and ReCacheController for re-submitting dead content to TorBox ([b698540](https://github.com/Zioyre/debridav-torbox-usenet/commit/b698540))
+* auto-trigger recache on dead links instead of deleting, add recacheAttemptedAt field ([c20ddca](https://github.com/Zioyre/debridav-torbox-usenet/commit/c20ddca))
+* store NZB bytes in DebridCachedUsenetReleaseContent for re-cache support ([0282143](https://github.com/Zioyre/debridav-torbox-usenet/commit/0282143))
+
+### Bug Fixes
+
+* switch TorBox usenet to sync endpoint, poll by download ID, add category support, use Apache5 HTTP client ([c1ca25a](https://github.com/Zioyre/debridav-torbox-usenet/commit/c1ca25a))
+* use async upload + hash-based polling for TorBox usenet ([c597adb](https://github.com/Zioyre/debridav-torbox-usenet/commit/c597adb))
+* match TorBox API response fields, use async endpoint, increase timeouts ([ce88ab7](https://github.com/Zioyre/debridav-torbox-usenet/commit/ce88ab7))
+* resolve compiler warnings in recache/debridfileresource ([a9e5523](https://github.com/Zioyre/debridav-torbox-usenet/commit/a9e5523))
+* fix compile errors — fix annotation and constants ([723e246](https://github.com/Zioyre/debridav-torbox-usenet/commit/723e246))
+
+### Build
+
+* change Docker image to ghcr.io/zioyre/debridav-torbox-usenet ([8925069](https://github.com/Zioyre/debridav-torbox-usenet/commit/8925069))
+
 ## [0.11.0](https://github.com/skjaere/DebriDav/compare/0.10.1...v0.11.0) (2026-02-18)
 
 
