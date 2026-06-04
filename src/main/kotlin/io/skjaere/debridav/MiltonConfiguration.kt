@@ -6,6 +6,7 @@ import io.skjaere.debridav.debrid.DebridLinkService
 import io.skjaere.debridav.fs.DatabaseFileService
 import com.vdsirotkin.pgmq.PgmqClient
 import io.skjaere.debridav.fs.LocalContentsService
+import io.skjaere.debridav.recache.ReCacheService
 import io.skjaere.debridav.resource.StreamableResourceFactory
 import io.skjaere.debridav.stream.StreamingService
 import io.skjaere.nzbstreamer.NzbStreamer
@@ -29,6 +30,7 @@ class MiltonConfiguration {
         fileService: DatabaseFileService,
         debridService: DebridLinkService,
         streamingService: StreamingService,
+        reCacheService: ReCacheService,
         debridavConfigurationProperties: DebridavConfigurationProperties,
         localContentsService: LocalContentsService,
         nzbStreamer: NzbStreamer?,
@@ -37,6 +39,7 @@ class MiltonConfiguration {
         fileService,
         debridService,
         streamingService,
+        reCacheService,
         debridavConfigurationProperties,
         localContentsService,
         nzbStreamer,

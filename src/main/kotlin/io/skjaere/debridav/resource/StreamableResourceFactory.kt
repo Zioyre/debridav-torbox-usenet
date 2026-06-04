@@ -15,6 +15,7 @@ import io.skjaere.debridav.fs.LocalEntity
 import io.skjaere.debridav.fs.NzbContents
 import io.skjaere.debridav.fs.RemotelyCachedEntity
 import com.vdsirotkin.pgmq.PgmqClient
+import io.skjaere.debridav.recache.ReCacheService
 import io.skjaere.debridav.stream.StreamingService
 import io.skjaere.debridav.usenet.nzb.findStreamableFile
 import io.skjaere.debridav.usenet.nzb.toNzbDocument
@@ -25,6 +26,7 @@ class StreamableResourceFactory(
     private val fileService: DatabaseFileService,
     private val debridService: DebridLinkService,
     private val streamingService: StreamingService,
+    private val reCacheService: ReCacheService,
     private val debridavConfigurationProperties: DebridavConfigurationProperties,
     private val localContentsService: LocalContentsService,
     private val nzbStreamer: NzbStreamer?,
@@ -83,6 +85,7 @@ class StreamableResourceFactory(
                         fileService = fileService,
                         streamingService = streamingService,
                         debridService = debridService,
+                        reCacheService = reCacheService,
                         debridavConfigurationProperties = debridavConfigurationProperties
                     )
                 }

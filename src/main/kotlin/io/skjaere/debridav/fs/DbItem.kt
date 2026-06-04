@@ -71,6 +71,9 @@ open class RemotelyCachedEntity : DbEntity() {
 
     open var hash: String? = null
 
+    /** Timestamp of the last recache attempt (millis since epoch). Null if never attempted. */
+    open var recacheAttemptedAt: Long? = null
+
     fun isNoLongerCached(debridClients: List<DebridProvider>) =
         contents!!
             .debridLinks
