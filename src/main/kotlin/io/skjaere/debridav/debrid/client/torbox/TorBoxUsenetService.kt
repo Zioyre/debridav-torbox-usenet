@@ -142,7 +142,7 @@ class TorBoxUsenetService(
 
         val debridFiles = withContext(Dispatchers.IO) {
             files.map { file ->
-                createDebridFileFromUsenetFile(file, usenetItem.id, releaseName, usenetDownload.hash!!)
+                createDebridFileFromUsenetFile(file, usenetItem.id, releaseName, usenetDownload.hash!!, nzbBytes)
             }
         }.toMutableList()
 
@@ -255,7 +255,8 @@ class TorBoxUsenetService(
         file: UsenetListItemFile,
         usenetId: Long,
         releaseName: String,
-        hash: String
+        hash: String,
+        nzbBytes: ByteArray
     ): RemotelyCachedEntity = withContext(Dispatchers.IO) {
         val downloadLink = getDownloadLink(usenetId, file.id)
 
@@ -266,7 +267,7 @@ class TorBoxUsenetService(
             releaseName = releaseName,
             mimeType = file.mimeType ?: "application/octet-stream",
             debridLinks = mutableListOf()
-        )
+        ).also { it.nzbBytes = nzbBytes }
 
         fileService.createDebridFile(
             "${debridavConfigurationProperties.downloadPath}/$releaseName/${file.name}",

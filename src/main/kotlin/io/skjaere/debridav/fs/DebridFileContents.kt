@@ -8,6 +8,7 @@ import com.fasterxml.jackson.annotation.JsonTypeName
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType
 import io.skjaere.debridav.debrid.DebridProvider
 import io.skjaere.debridav.usenet.nzb.NzbDocumentEntity
+import jakarta.persistence.Basic
 import jakarta.persistence.Column
 import jakarta.persistence.DiscriminatorColumn
 import jakarta.persistence.DiscriminatorType
@@ -19,6 +20,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.Inheritance
 import jakarta.persistence.InheritanceType
 import jakarta.persistence.JoinColumn
+import jakarta.persistence.Lob
 import jakarta.persistence.ManyToOne
 import org.hibernate.annotations.Type
 import java.io.Serializable
@@ -79,6 +81,11 @@ open class DebridCachedTorrentContent() : DebridFileContents() {
 open class DebridCachedUsenetReleaseContent() : DebridFileContents() {
     @Column(name = "releaseName", length = 2048)
     open var releaseName: String? = null
+
+    @Lob
+    @Basic(fetch = FetchType.LAZY)
+    @Column(name = "nzb_bytes")
+    open var nzbBytes: ByteArray? = null
 
     constructor(releaseName: String) : this() {
         this.releaseName = releaseName
