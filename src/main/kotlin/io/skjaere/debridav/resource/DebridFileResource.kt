@@ -132,7 +132,7 @@ class DebridFileResource(
                         val msg = "Content is being re-downloaded from TorBox. Try again in ~30 minutes."
                         outputStream.write(msg.toByteArray(StandardCharsets.UTF_8))
                     } else {
-                        val remainingMs = RECACHE_COOLDOWN_MS - (now - (lastAttempt ?: now))
+                        val remainingMs = RECACHE_COOLDOWN_MS - (now - lastAttempt)
                         val remainingMin = remainingMs / 60_000
                         val msg = "Content unavailable. Recache was attempted ${remainingMin}m ago. Try again later."
                         outputStream.write(msg.toByteArray(StandardCharsets.UTF_8))
