@@ -200,6 +200,10 @@ A docker compose file is provided in the dev directory, with Prowlarr and rclone
 download client in prowlarr and point it to the ip obtained by running `ip addr show docker0` in order to reach your
 locally running DebriDav server.
 
+## Deployment
+
+See [docs/vps-deployment.md](docs/vps-deployment.md) for VPS deployment guide, critical pitfalls, and recovery procedures.
+
 ## Disclaimer
 
 DebriDav is intended for use with legally obtained content only. The authors do not support or condone piracy.
